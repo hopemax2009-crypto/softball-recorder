@@ -158,9 +158,11 @@ export function RecordPanel({
 
   const deleteAtBat = (atBatId: string) => {
     if (!activeGame) return;
+    const now = new Date().toISOString();
     onUpdateGame({
       ...activeGame,
       atBats: activeGame.atBats.filter((a) => a.id !== atBatId),
+      syncUpdatedAt: now,
     });
     if (editingAtBat?.id === atBatId) setEditingAtBat(null);
   };

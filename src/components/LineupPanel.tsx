@@ -1,7 +1,7 @@
 import type { Game, LineupEntry, Player, Position } from '../types';
 import { POSITIONS } from '../types';
+import { touchLineup } from '../utils/gameLogic';
 import { Card } from './ui';
-
 interface Props {
   game: Game;
   players: Player[];
@@ -16,12 +16,9 @@ export function LineupPanel({ game, players, onUpdate }: Props) {
   const togglePlayer = (playerId: string) => {
     const existing = game.lineup.find((l) => l.playerId === playerId);
     if (existing) {
-      onUpdate({
-        ...game,
-        lineup: game.lineup.map((l) =>
+      onUpdate(touchLineup(game, game.lineup.map((l) =>
           l.playerId === playerId ? { ...l, isActive: !l.isActive } : l
-        ),
-      });
+        )));
     } else {
       const usedOrders = game.lineup.filter((l) => l.isActive).map((l) => l.battingOrder);
       let nextOrder = 1;
@@ -32,17 +29,14 @@ export function LineupPanel({ game, players, onUpdate }: Props) {
         position: 'BN',
         isActive: true,
       };
-      onUpdate({ ...game, lineup: [...game.lineup, entry] });
+      onUpdate(touchLineup(game, [...game.lineup, entry]));
     }
   };
 
   const updateEntry = (playerId: string, patch: Partial<LineupEntry>) => {
-    onUpdate({
-      ...game,
-      lineup: game.lineup.map((l) =>
+    onUpdate(touchLineup(game, game.lineup.map((l) =>
         l.playerId === playerId ? { ...l, ...patch } : l
-      ),
-    });
+      )));
   };
 
   return (

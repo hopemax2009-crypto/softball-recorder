@@ -22,10 +22,11 @@ export function Scoreboard({ game, onUpdate, onSelectHalf, readOnlyOpponent }: P
   const [inputRuns, setInputRuns] = useState('0');
 
   const totals = getTeamTotals(game);
+  const opponentScores = game.opponentScores ?? [];
   const maxInning = Math.max(
     game.totalInnings,
     ...game.atBats.map((a) => a.inning),
-    ...game.opponentScores.map((s) => s.inning),
+    ...opponentScores.map((s) => s.inning),
     1
   );
   const innings = Array.from({ length: maxInning }, (_, i) => i + 1);
@@ -42,7 +43,7 @@ export function Scoreboard({ game, onUpdate, onSelectHalf, readOnlyOpponent }: P
     const half = oppHalf();
     onSelectHalf(inning, half);
     if (readOnlyOpponent) return;
-    const existing = getOpponentScore(game.opponentScores, inning, half);
+    const existing = getOpponentScore(opponentScores, inning, half);
     setInputRuns(String(existing ?? 0));
     setEditing({ inning, half });
   };
@@ -52,7 +53,7 @@ export function Scoreboard({ game, onUpdate, onSelectHalf, readOnlyOpponent }: P
     const runs = Math.max(0, parseInt(inputRuns, 10) || 0);
     onUpdate({
       ...game,
-      opponentScores: setOpponentScore(game.opponentScores, editing.inning, editing.half, runs),
+      opponentScores: setOpponentScore(opponentScores, editing.inning, editing.half, runs),
     });
     setEditing(null);
   };
@@ -81,7 +82,7 @@ export function Scoreboard({ game, onUpdate, onSelectHalf, readOnlyOpponent }: P
 
   const renderOppCell = (inning: number) => {
     const half = oppHalf();
-    const score = getOpponentScore(game.opponentScores, inning, half);
+    const score = getOpponentScore(opponentScores, inning, half);
     return (
       <button
         key={inning}

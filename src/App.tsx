@@ -1,7 +1,7 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import type { Game, Player, TabId } from './types';
 import { getRecorderParams } from './utils/liveRoom';
-import { loadHostRoom } from './utils/hostRoomStorage';
+import { loadHostRoom, type HostRoomInfo } from './utils/hostRoomStorage';
 import { useAppData } from './hooks/useAppData';
 import { useLiveRoomSync } from './hooks/useLiveRoomSync';
 import { BottomNav } from './components/BottomNav';
@@ -36,7 +36,17 @@ function HostApp() {
   const [tab, setTab] = useState<TabId>('record');
   const [activeGame, setActiveGame] = useState<Game | null>(null);
 
-  const hostRoom = activeGame ? loadHostRoom(activeGame.id) : null;
+  const hostRoom = useMemo((): HostRoomInfo | null => {
+    if (!activeGame?.liveRoomId) return null;
+    const stored = loadHostRoom(activeGame.id);
+    const pin = activeGame.liveRoomPin ?? stored?.pin;
+    if (!pin) return null;
+    return {
+      gameId: activeGame.id,
+      roomId: activeGame.liveRoomId,
+      pin,
+    };
+  }, [activeGame?.id, activeGame?.liveRoomId, activeGame?.liveRoomPin]);
 
   const handleGameSynced = useCallback(
     (game: Game, players: Player[]) => {
@@ -77,7 +87,6 @@ function HostApp() {
     updateGame(game);
     setActiveGame(game);
   };
-
   const TITLES: Record<TabId, string> = {
     record: activeGame ? `主控 · ${activeGame.opponent}` : '打擊紀錄',
     games: '比賽管理',

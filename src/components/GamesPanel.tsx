@@ -40,15 +40,33 @@ export function GamesPanel({
   const [isHomeTeam, setIsHomeTeam] = useState(true);
   const [status, setStatus] = useState('');
   const [busy, setBusy] = useState(false);
-  const [qrModal, setQrModal] = useState<{ roomId: string; pin: string; opponent: string } | null>(null);
+  const [qrModal, setQrModal] = useState<{
+    roomId: string;
+    pin: string;
+    opponent: string;
+    game: Game;
+  } | null>(null);
 
   const filteredGames = games
     .filter((g) => !selectedSeason || g.seasonId === selectedSeason)
     .sort((a, b) => b.date.localeCompare(a.date));
 
-  const openQrModal = (roomId: string, pin: string, opponentName: string, gameId: string) => {
-    saveHostRoom({ gameId, roomId, pin });
-    setQrModal({ roomId, pin, opponent: opponentName });
+  const openQrModal = (roomId: string, pin: string, opponentName: string, game: Game) => {
+    const gameWithRoom: Game = {
+      ...game,
+      liveRoomId: roomId,
+      liveRoomPin: pin,
+      isShared: true,
+    };
+    saveHostRoom({ gameId: game.id, roomId, pin });
+    setQrModal({ roomId, pin, opponent: opponentName, game: gameWithRoom });
+  };
+
+  const handleStartHost = () => {
+    if (!qrModal) return;
+    onUpsertGame(qrModal.game);
+    onSelectGame(qrModal.game);
+    setQrModal(null);
   };
 
   const handleAddSeason = () => {
@@ -82,7 +100,7 @@ export function GamesPanel({
       const pin = generatePin();
       const room = await createLiveRoom(game, players, ownerName, pin);
       onUpsertGame(room.game);
-      openQrModal(room.roomId, room.pin, game.opponent, game.id);
+      openQrModal(room.roomId, room.pin, game.opponent, room.game);
     } catch (e) {
       setStatus(e instanceof Error ? e.message : '開啟失敗');
     } finally {
@@ -99,7 +117,7 @@ export function GamesPanel({
 
     const cachedPin = game.liveRoomPin ?? loadHostRoom(game.id)?.pin;
     if (cachedPin) {
-      openQrModal(game.liveRoomId, cachedPin, game.opponent, game.id);
+      openQrModal(game.liveRoomId, cachedPin, game.opponent, game);
       return;
     }
 
@@ -111,7 +129,7 @@ export function GamesPanel({
         setStatus('找不到共用場次，請重新開啟 QR 共用');
         return;
       }
-      openQrModal(room.roomId, room.pin, game.opponent, game.id);
+      openQrModal(room.roomId, room.pin, game.opponent, { ...game, liveRoomPin: room.pin });
       if (!game.liveRoomPin) {
         onUpsertGame({ ...game, liveRoomPin: room.pin });
       }
@@ -157,11 +175,7 @@ export function GamesPanel({
           roomId={qrModal.roomId}
           pin={qrModal.pin}
           opponent={qrModal.opponent}
-          onClose={() => {
-            setQrModal(null);
-            const g = games.find((x) => x.opponent === qrModal.opponent && x.liveRoomId === qrModal.roomId);
-            if (g) onSelectGame(g);
-          }}
+          onClose={handleStartHost}
         />
       )}
 

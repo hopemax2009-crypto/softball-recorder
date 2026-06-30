@@ -48,7 +48,11 @@ export function setOpponentScore(
   runs: number
 ): OpponentScore[] {
   const filtered = scores.filter((s) => !(s.inning === inning && s.half === half));
-  return [...filtered, { inning, half, runs }];
+  return [...filtered, { inning, half, runs, updatedAt: new Date().toISOString() }];
+}
+
+export function touchLineup(game: Game, lineup: Game['lineup']): Game {
+  return { ...game, lineup, lineupUpdatedAt: new Date().toISOString() };
 }
 
 export interface HalfInningStats {

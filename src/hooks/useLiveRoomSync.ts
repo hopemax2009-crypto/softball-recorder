@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Game, Player } from '../types';
+import { mergeGames } from '../utils/gameMerge';
 import { subscribeLiveRoom, updateLiveRoomGame } from '../services/liveRoomSync';
 import type { LiveRoom } from '../utils/liveRoom';
-
 export interface LiveSyncState {
   connected: boolean;
   syncing: boolean;
@@ -57,7 +57,12 @@ export function useLiveRoomSync(
       (room: LiveRoom) => {
         if (pushingRef.current) return;
         setSyncState({ connected: true, syncing: false, lastSync: new Date(), error: null });
-        onGameUpdate(room.game, room.players);
+        const local = gameRef.current;
+        const merged =
+          local && local.liveRoomId === room.game.liveRoomId
+            ? mergeGames(local, room.game)
+            : room.game;
+        onGameUpdate(merged, room.players);
       },
       (msg) => setSyncState((s) => ({ ...s, error: msg, connected: false }))
     );

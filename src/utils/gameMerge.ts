@@ -8,9 +8,16 @@ function scoreKey(s: OpponentScore): string {
   return `${s.inning}-${s.half}`;
 }
 
+function ts(value: string | undefined, fallback: string): number {
+  return new Date(value ?? fallback).getTime();
+}
+
+function scoreTimestamp(score: OpponentScore, game: Game): number {
+  if (score.updatedAt) return new Date(score.updatedAt).getTime();
+  return ts(game.syncUpdatedAt, game.createdAt);
+}
+
 function mergeOpponentScores(local: Game, remote: Game): OpponentScore[] {
-  const localTime = new Date(local.syncUpdatedAt ?? local.createdAt).getTime();
-  const remoteTime = new Date(remote.syncUpdatedAt ?? remote.createdAt).getTime();
   const map = new Map<string, OpponentScore>();
 
   for (const s of safeArray(local.opponentScores)) {
@@ -18,7 +25,8 @@ function mergeOpponentScores(local: Game, remote: Game): OpponentScore[] {
   }
   for (const s of safeArray(remote.opponentScores)) {
     const key = scoreKey(s);
-    if (!map.has(key) || remoteTime >= localTime) {
+    const existing = map.get(key);
+    if (!existing || scoreTimestamp(s, remote) >= scoreTimestamp(existing, local)) {
       map.set(key, s);
     }
   }
@@ -28,12 +36,12 @@ function mergeOpponentScores(local: Game, remote: Game): OpponentScore[] {
 }
 
 function mergeLineup(local: Game, remote: Game): Game['lineup'] {
-  const localTime = new Date(local.syncUpdatedAt ?? local.createdAt).getTime();
-  const remoteTime = new Date(remote.syncUpdatedAt ?? remote.createdAt).getTime();
   const localLineup = safeArray(local.lineup);
   const remoteLineup = safeArray(remote.lineup);
-  const base = remoteTime >= localTime ? remoteLineup : localLineup;
-  const other = remoteTime >= localTime ? localLineup : remoteLineup;
+  const localTime = ts(local.lineupUpdatedAt ?? local.syncUpdatedAt, local.createdAt);
+  const remoteTime = ts(remote.lineupUpdatedAt ?? remote.syncUpdatedAt, remote.createdAt);
+  const base = localTime >= remoteTime ? localLineup : remoteLineup;
+  const other = localTime >= remoteTime ? remoteLineup : localLineup;
   const map = new Map(base.map((e) => [e.playerId, e]));
   for (const e of other) {
     if (!map.has(e.playerId)) map.set(e.playerId, e);
@@ -41,10 +49,7 @@ function mergeLineup(local: Game, remote: Game): Game['lineup'] {
   return Array.from(map.values());
 }
 
-function mergeRoster(
-  local: Game,
-  remote: Game
-): Game['rosterSnapshot'] {
+function mergeRoster(local: Game, remote: Game): Game['rosterSnapshot'] {
   const list = [...(local.rosterSnapshot ?? []), ...(remote.rosterSnapshot ?? [])];
   const map = new Map(list.map((p) => [p.id, p]));
   return Array.from(map.values());
@@ -60,9 +65,15 @@ function sortAtBats(atBats: AtBat[]): AtBat[] {
   });
 }
 
+function pickNewerIso(a: string | undefined, b: string | undefined): string | undefined {
+  if (!a) return b;
+  if (!b) return a;
+  return new Date(a) >= new Date(b) ? a : b;
+}
+
 export function mergeGames(local: Game, remote: Game): Game {
-  const localTime = new Date(local.syncUpdatedAt ?? local.createdAt).getTime();
-  const remoteTime = new Date(remote.syncUpdatedAt ?? remote.createdAt).getTime();
+  const localTime = ts(local.syncUpdatedAt, local.createdAt);
+  const remoteTime = ts(remote.syncUpdatedAt, remote.createdAt);
   const base = remoteTime >= localTime ? remote : local;
 
   const atBatMap = new Map<string, AtBat>();
@@ -96,6 +107,9 @@ export function mergeGames(local: Game, remote: Game): Game {
 
   const liveRoomPin = base.liveRoomPin ?? local.liveRoomPin ?? remote.liveRoomPin;
   if (liveRoomPin) merged.liveRoomPin = liveRoomPin;
+
+  const lineupUpdatedAt = pickNewerIso(local.lineupUpdatedAt, remote.lineupUpdatedAt);
+  if (lineupUpdatedAt) merged.lineupUpdatedAt = lineupUpdatedAt;
 
   return merged;
 }

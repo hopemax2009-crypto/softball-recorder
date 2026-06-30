@@ -211,7 +211,7 @@ export function useAppData() {
   const updateGame = useCallback(
     (game: Game) => {
       if (!data) return;
-      const updated: Game = game.isShared
+      const updated: Game = game.isShared || game.liveRoomId
         ? { ...game, syncUpdatedAt: new Date().toISOString() }
         : game;
       persist({

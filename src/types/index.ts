@@ -74,6 +74,7 @@ export interface OpponentScore {
   inning: number;
   half: HalfInning;
   runs: number;
+  updatedAt?: string;
 }
 
 export interface AtBat {
@@ -136,6 +137,7 @@ export interface Game {
   syncUpdatedAt?: string;
   liveRoomId?: string;
   liveRoomPin?: string;
+  lineupUpdatedAt?: string;
   rosterSnapshot?: { id: string; name: string; number?: string }[];
 }
 
