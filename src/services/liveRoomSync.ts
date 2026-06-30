@@ -2,8 +2,13 @@ import { get, onValue, ref, runTransaction, set } from 'firebase/database';
 import type { Game, Player } from '../types';
 import { mergeGames } from '../utils/gameMerge';
 import { normalizeGame } from '../utils/gameLogic';
+import { stripUndefined } from '../utils/firebaseSanitize';
 import { getFirebaseDb } from '../config/firebase';
 import type { LiveRoom } from '../utils/liveRoom';
+
+function sanitizeRoom(room: LiveRoom): LiveRoom {
+  return stripUndefined(room);
+}
 
 function normalizeRoom(raw: LiveRoom): LiveRoom {
   return {
@@ -37,7 +42,7 @@ export async function createLiveRoom(
   roomId?: string
 ): Promise<LiveRoom> {
   const id = roomId ?? generateRoomId();
-  const room: LiveRoom = {
+  const room = sanitizeRoom({
     roomId: id,
     pin,
     hostName,
@@ -45,7 +50,7 @@ export async function createLiveRoom(
     game: normalizeGame({ ...game, liveRoomId: id, isShared: true, syncUpdatedAt: new Date().toISOString() }),
     players,
     updatedAt: new Date().toISOString(),
-  };
+  });
   await set(roomRef(id), room);
   return room;
 }
@@ -55,13 +60,13 @@ export async function updateLiveRoomGame(roomId: string, game: Game, players?: P
     if (!current) return current;
     const room = current as LiveRoom;
     const merged = mergeGames(normalizeGame(room.game), normalizeGame({ ...game, syncUpdatedAt: new Date().toISOString() }));
-    return {
+    return sanitizeRoom({
       ...room,
       game: merged,
-      players: players ?? room.players,
+      players: players ?? room.players ?? [],
       opponent: merged.opponent,
       updatedAt: new Date().toISOString(),
-    };
+    });
   });
 }
 

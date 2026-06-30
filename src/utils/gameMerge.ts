@@ -73,15 +73,26 @@ export function mergeGames(local: Game, remote: Game): Game {
     if (!existing || aTime >= eTime) atBatMap.set(a.id, a);
   }
 
-  return {
+  const merged: Game = {
     ...base,
     lineup: mergeLineup(local, remote),
     opponentScores: mergeOpponentScores(local, remote),
     atBats: sortAtBats(Array.from(atBatMap.values())),
-    rosterSnapshot: mergeRoster(local, remote),
     isShared: true,
-    teamCode: base.teamCode ?? local.teamCode ?? remote.teamCode,
-    shareCode: base.shareCode ?? local.shareCode ?? remote.shareCode,
     syncUpdatedAt: new Date().toISOString(),
   };
+
+  const rosterSnapshot = mergeRoster(local, remote) ?? [];
+  if (rosterSnapshot.length > 0) merged.rosterSnapshot = rosterSnapshot;
+
+  const teamCode = base.teamCode ?? local.teamCode ?? remote.teamCode;
+  if (teamCode) merged.teamCode = teamCode;
+
+  const shareCode = base.shareCode ?? local.shareCode ?? remote.shareCode;
+  if (shareCode) merged.shareCode = shareCode;
+
+  const liveRoomId = base.liveRoomId ?? local.liveRoomId ?? remote.liveRoomId;
+  if (liveRoomId) merged.liveRoomId = liveRoomId;
+
+  return merged;
 }

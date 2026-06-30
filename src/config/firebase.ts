@@ -17,7 +17,7 @@ export function isFirebaseConfigured(): boolean {
 
 export function getFirebaseDb(): Database {
   if (!isFirebaseConfigured()) {
-    throw new Error('Firebase 尚未設定，請聯繫主控端管理者');
+    throw new Error('Firebase 尚未設定，請聯繫管理者');
   }
   if (!app) {
     app = initializeApp(firebaseConfig);

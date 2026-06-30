@@ -20,6 +20,8 @@ function HostApp() {
     loading,
     onAuth,
     logout,
+    cloudSync,
+    syncToCloudNow,
     replaceData,
     addSeason,
     addPlayer,
@@ -135,7 +137,13 @@ function HostApp() {
           <PlayersPanel players={data.players} onAddPlayer={addPlayer} onDeletePlayer={deletePlayer} />
         )}
         {tab === 'settings' && (
-          <SettingsPanel data={data} onReplaceData={replaceData} onLogout={logout} />
+          <SettingsPanel
+            data={data}
+            cloudSync={cloudSync}
+            onSyncToCloud={syncToCloudNow}
+            onReplaceData={replaceData}
+            onLogout={logout}
+          />
         )}
       </main>
 

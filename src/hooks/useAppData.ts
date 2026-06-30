@@ -1,56 +1,152 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { v4 as uuid } from 'uuid';
-import { getSession, clearSession } from '../services/auth';
+import { clearSession, getSession } from '../services/auth';
+import { loadCloudData, saveCloudData } from '../services/cloudStorage';
+import { isFirebaseConfigured } from '../config/firebase';
 import type { AuthSession, Game, Player, Season, UserData } from '../types';
 import { createDefaultGameFields } from '../utils/gameLogic';
 import { createEmptyData, loadData, saveData } from '../utils/storage';
+
+export interface CloudSyncState {
+  syncing: boolean;
+  lastSync: Date | null;
+  error: string | null;
+}
+
+function pickNewerData(cloud: UserData | null, local: UserData | null): UserData | null {
+  if (cloud && local) {
+    return new Date(cloud.updatedAt) >= new Date(local.updatedAt) ? cloud : local;
+  }
+  return cloud ?? local;
+}
 
 export function useAppData() {
   const [session, setSession] = useState<AuthSession | null>(null);
   const [data, setData] = useState<UserData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [cloudSync, setCloudSync] = useState<CloudSyncState>({
+    syncing: false,
+    lastSync: null,
+    error: null,
+  });
+  const cloudTimerRef = useRef<ReturnType<typeof setTimeout>>();
+  const sessionRef = useRef<AuthSession | null>(null);
+  sessionRef.current = session;
 
-  const loadUserData = useCallback((s: AuthSession) => {
-    const saved = loadData(s.userId);
-    if (saved) {
-      setData(saved);
-    } else {
-      const empty = createEmptyData(s.userId, s.displayName);
-      saveData(empty);
-      setData(empty);
+  const pushToCloud = useCallback(async (uid: string, payload: UserData) => {
+    if (!isFirebaseConfigured()) return;
+    setCloudSync((s) => ({ ...s, syncing: true, error: null }));
+    try {
+      await saveCloudData(uid, payload);
+      setCloudSync({ syncing: false, lastSync: new Date(), error: null });
+    } catch (e) {
+      setCloudSync({
+        syncing: false,
+        lastSync: null,
+        error: e instanceof Error ? e.message : '雲端同步失敗',
+      });
     }
   }, []);
+
+  const loadUserData = useCallback(
+    async (s: AuthSession) => {
+      const local = loadData(s.userId);
+      let resolved: UserData;
+
+      if (isFirebaseConfigured()) {
+        setCloudSync((state) => ({ ...state, syncing: true, error: null }));
+        try {
+          const cloud = await loadCloudData(s.userId);
+          const picked = pickNewerData(cloud, local);
+          if (picked) {
+            resolved = { ...picked, ownerId: s.userId, ownerName: s.displayName };
+          } else {
+            resolved = createEmptyData(s.userId, s.displayName);
+          }
+          saveData(resolved);
+          setData(resolved);
+          await saveCloudData(s.userId, resolved);
+          setCloudSync({ syncing: false, lastSync: new Date(), error: null });
+        } catch (e) {
+          if (local) {
+            resolved = { ...local, ownerId: s.userId, ownerName: s.displayName };
+            setData(resolved);
+          } else {
+            resolved = createEmptyData(s.userId, s.displayName);
+            saveData(resolved);
+            setData(resolved);
+          }
+          setCloudSync({
+            syncing: false,
+            lastSync: null,
+            error: e instanceof Error ? e.message : '無法載入雲端資料',
+          });
+        }
+      } else if (local) {
+        resolved = local;
+        setData(resolved);
+      } else {
+        resolved = createEmptyData(s.userId, s.displayName);
+        saveData(resolved);
+        setData(resolved);
+      }
+    },
+    []
+  );
 
   useEffect(() => {
     const s = getSession();
     if (s) {
       setSession(s);
-      loadUserData(s);
+      void loadUserData(s).finally(() => setLoading(false));
+    } else {
+      setLoading(false);
     }
-    setLoading(false);
+    return () => clearTimeout(cloudTimerRef.current);
   }, [loadUserData]);
 
   const onAuth = useCallback(
     (s: AuthSession) => {
       setSession(s);
-      loadUserData(s);
+      void loadUserData(s);
     },
     [loadUserData]
   );
 
   const logout = useCallback(() => {
+    clearTimeout(cloudTimerRef.current);
     clearSession();
     setSession(null);
     setData(null);
+    setCloudSync({ syncing: false, lastSync: null, error: null });
   }, []);
+
+  const syncToCloudNow = useCallback(async () => {
+    const s = sessionRef.current;
+    if (!s || !data) return;
+    await pushToCloud(s.userId, data);
+  }, [data, pushToCloud]);
 
   const persist = useCallback(
     (newData: UserData) => {
-      if (!session) return;
-      saveData(newData);
-      setData(newData);
+      const s = sessionRef.current;
+      if (!s) return;
+      const updated: UserData = {
+        ...newData,
+        ownerId: s.userId,
+        ownerName: s.displayName,
+        updatedAt: new Date().toISOString(),
+      };
+      saveData(updated);
+      setData(updated);
+
+      if (!isFirebaseConfigured()) return;
+      clearTimeout(cloudTimerRef.current);
+      cloudTimerRef.current = setTimeout(() => {
+        void pushToCloud(s.userId, updated);
+      }, 800);
     },
-    [session]
+    [pushToCloud]
   );
 
   const replaceData = useCallback(
@@ -227,6 +323,8 @@ export function useAppData() {
     session,
     data,
     loading,
+    cloudSync,
+    syncToCloudNow,
     onAuth,
     logout,
     replaceData,
