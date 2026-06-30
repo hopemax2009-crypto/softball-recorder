@@ -71,24 +71,38 @@ function pickNewerIso(a: string | undefined, b: string | undefined): string | un
   return new Date(a) >= new Date(b) ? a : b;
 }
 
-function mergeAtBats(local: Game, remote: Game, preferLocalOnTie: boolean): AtBat[] {
-  const atBatMap = new Map<string, AtBat>();
-  const [first, second] = preferLocalOnTie
-    ? [remote, local]
-    : [local, remote];
+function mergeAtBats(local: Game, remote: Game, prefer: 'local' | 'remote'): AtBat[] {
+  const localTime = ts(local.syncUpdatedAt, local.createdAt);
+  const remoteTime = ts(remote.syncUpdatedAt, remote.createdAt);
 
-  for (const a of safeArray(first.atBats)) {
-    atBatMap.set(a.id, a);
+  let authority: 'local' | 'remote';
+  if (localTime > remoteTime) authority = 'local';
+  else if (remoteTime > localTime) authority = 'remote';
+  else authority = prefer;
+
+  const auth = authority === 'local' ? local : remote;
+  const other = authority === 'local' ? remote : local;
+  const authTime = authority === 'local' ? localTime : remoteTime;
+
+  const map = new Map<string, AtBat>();
+  for (const a of safeArray(auth.atBats)) {
+    map.set(a.id, a);
   }
-  for (const a of safeArray(second.atBats)) {
-    const existing = atBatMap.get(a.id);
-    const aTime = new Date(a.updatedAt ?? 0).getTime();
-    const eTime = existing ? new Date(existing.updatedAt ?? 0).getTime() : -1;
-    if (!existing || aTime >= eTime) {
-      atBatMap.set(a.id, a);
+
+  for (const a of safeArray(other.atBats)) {
+    const existing = map.get(a.id);
+    if (existing) {
+      const aTime = new Date(a.updatedAt ?? 0).getTime();
+      const eTime = new Date(existing.updatedAt ?? 0).getTime();
+      if (aTime > eTime) map.set(a.id, a);
+    } else {
+      // 僅接受權威版本 sync 之後才新增的打席，避免已刪除的紀錄被還原
+      const aTime = new Date(a.updatedAt ?? 0).getTime();
+      if (aTime > authTime) map.set(a.id, a);
     }
   }
-  return sortAtBats(Array.from(atBatMap.values()));
+
+  return sortAtBats(Array.from(map.values()));
 }
 
 export function mergeGames(
@@ -99,13 +113,12 @@ export function mergeGames(
   const localTime = ts(local.syncUpdatedAt, local.createdAt);
   const remoteTime = ts(remote.syncUpdatedAt, remote.createdAt);
   const base = remoteTime >= localTime ? remote : local;
-  const preferLocalOnTie = prefer === 'local';
 
   const merged: Game = {
     ...base,
     lineup: mergeLineup(local, remote),
     opponentScores: mergeOpponentScores(local, remote),
-    atBats: mergeAtBats(local, remote, preferLocalOnTie),
+    atBats: mergeAtBats(local, remote, prefer),
     isShared: true,
     syncUpdatedAt: new Date().toISOString(),
   };

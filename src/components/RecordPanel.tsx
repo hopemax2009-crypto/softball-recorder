@@ -365,7 +365,7 @@ export function RecordPanel({
       updatedAt: now,
     };
     const newAtBats = [...activeGame.atBats, atBat];
-    onUpdateGame({ ...activeGame, atBats: newAtBats });
+    onUpdateGame({ ...activeGame, atBats: newAtBats, syncUpdatedAt: now });
 
     const lineup = activeGame.lineup.filter((l) => l.isActive).sort((a, b) => a.battingOrder - b.battingOrder);
     const idx = lineup.findIndex((l) => l.playerId === selectedPlayer);
@@ -376,7 +376,8 @@ export function RecordPanel({
 
   const undoLast = () => {
     if (!activeGame || activeGame.atBats.length === 0) return;
-    onUpdateGame({ ...activeGame, atBats: activeGame.atBats.slice(0, -1) });
+    const now = new Date().toISOString();
+    onUpdateGame({ ...activeGame, atBats: activeGame.atBats.slice(0, -1), syncUpdatedAt: now });
   };
 
   const saveEditAtBat = () => {
@@ -388,6 +389,7 @@ export function RecordPanel({
       atBats: activeGame.atBats.map((a) =>
         a.id === atBat.id ? { ...a, rbi: editRbi, outs: editOuts, updatedAt: now } : a
       ),
+      syncUpdatedAt: now,
     });
     closeRecordSheet();
   };
