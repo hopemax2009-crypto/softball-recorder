@@ -1,30 +1,80 @@
 import { useState } from 'react';
 import type { Game, Player, Season } from '../types';
-import { calculateAllStats, formatAvg, formatWobaPlus, getTeamAvgWoba, getWobaPlusTone } from '../utils/stats';
-import { PlayerStatsSheet } from './PlayerStatsSheet';
-import { Card, EmptyState, Select } from './ui';
+import { isFirebaseConfigured } from '../config/firebase';
+import { publishPublicStats } from '../services/publicStatsSync';
+import { buildPublicStatsUrl } from '../utils/publicStats';
+import { getTeamCode, normalizeTeamCode, setTeamCode } from '../utils/teamStorage';
+import { StatsView } from './StatsView';
+import { Button, Card, EmptyState, Input } from './ui';
 
 interface Props {
   players: Player[];
   seasons: Season[];
   games: Game[];
+  teamName: string;
+  publishedBy?: string;
 }
 
-export function StatsPanel({ players, seasons, games }: Props) {
-  const [view, setView] = useState<'season' | 'total'>('season');
-  const [seasonId, setSeasonId] = useState(seasons[0]?.id ?? '');
-  const [selectedPlayer, setSelectedPlayer] = useState<string | null>(null);
+export function StatsPanel({ players, seasons, games, teamName, publishedBy }: Props) {
+  const [teamCodeInput, setTeamCodeInput] = useState(() => getTeamCode() || '');
+  const [shareUrl, setShareUrl] = useState(() => {
+    const code = getTeamCode();
+    return code ? buildPublicStatsUrl(code) : '';
+  });
+  const [publishing, setPublishing] = useState(false);
+  const [publishStatus, setPublishStatus] = useState('');
+  const [lastPublishedAt, setLastPublishedAt] = useState<string | null>(null);
 
-  const stats = calculateAllStats(
-    players,
-    games,
-    view === 'season' ? seasonId : undefined
-  );
+  const handlePublish = async () => {
+    const teamCode = normalizeTeamCode(teamCodeInput);
+    if (!teamCode) {
+      setPublishStatus('請輸入隊伍代碼（英文小寫、數字、連字號）');
+      return;
+    }
+    if (!isFirebaseConfigured()) {
+      setPublishStatus('Firebase 尚未設定，無法發布公開統計');
+      return;
+    }
+    if (players.length === 0) {
+      setPublishStatus('尚無球員資料，無法發布');
+      return;
+    }
 
-  const playerStats = selectedPlayer
-    ? stats.find((s) => s.playerId === selectedPlayer) ?? null
-    : null;
-  const teamAvgWoba = getTeamAvgWoba(stats);
+    setPublishing(true);
+    setPublishStatus('');
+    try {
+      const now = new Date().toISOString();
+      await publishPublicStats({
+        teamCode,
+        teamName: teamName.trim() || teamCode,
+        players,
+        seasons,
+        games,
+        updatedAt: now,
+        publishedBy,
+      });
+      setTeamCode(teamCode);
+      setTeamCodeInput(teamCode);
+      const url = buildPublicStatsUrl(teamCode);
+      setShareUrl(url);
+      setLastPublishedAt(now);
+      setPublishStatus('已發布！任何人可透過下方連結查詢統計');
+    } catch (e) {
+      setPublishStatus(e instanceof Error ? e.message : '發布失敗');
+    } finally {
+      setPublishing(false);
+    }
+  };
+
+  const handleCopyLink = async () => {
+    if (!shareUrl) return;
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setPublishStatus('連結已複製到剪貼簿');
+    } catch {
+      setPublishStatus('無法複製，請手動選取連結');
+    }
+  };
 
   if (players.length === 0) {
     return (
@@ -36,81 +86,55 @@ export function StatsPanel({ players, seasons, games }: Props) {
 
   return (
     <div className="p-4 space-y-4">
-      <div className="flex gap-2">
-        <button
-          onClick={() => setView('season')}
-          className={`flex-1 py-2 rounded-xl font-medium text-sm transition ${
-            view === 'season' ? 'bg-field-green text-white' : 'bg-gray-100 text-gray-600'
-          }`}
-        >
-          賽季成績
-        </button>
-        <button
-          onClick={() => setView('total')}
-          className={`flex-1 py-2 rounded-xl font-medium text-sm transition ${
-            view === 'total' ? 'bg-field-green text-white' : 'bg-gray-100 text-gray-600'
-          }`}
-        >
-          累計成績
-        </button>
-      </div>
-
-      {view === 'season' && seasons.length > 0 && (
-        <Select
-          label="選擇賽季"
-          value={seasonId}
-          onChange={(e) => setSeasonId(e.target.value)}
-          options={seasons.map((s) => ({ value: s.id, label: `${s.year} ${s.name}` }))}
-        />
-      )}
-
-      {view === 'season' && seasons.length === 0 && (
-        <EmptyState icon="🏟️" title="尚無賽季" description="請先到比賽頁面建立賽季" />
-      )}
-
-      {stats.length === 0 ? (
-        <EmptyState icon="📊" title="尚無打擊資料" description="紀錄打席後即可查看統計" />
-      ) : (
-        <div className="space-y-2">
-          <h3 className="text-sm font-medium text-gray-500">球員列表（點擊查看詳細）</h3>
-          {stats.map((s) => {
-            const plusTone = getWobaPlusTone(s.wobaPlus);
-            return (
-            <Card key={s.playerId}>
-              <button
-                type="button"
-                onClick={() => setSelectedPlayer(s.playerId)}
-                className="w-full text-left active:opacity-70"
-              >
-                <div className="flex justify-between items-center gap-2">
-                  <span className="font-semibold">{s.playerName}</span>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <span className="text-violet-700 font-bold text-sm">{formatAvg(s.woba)}</span>
-                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${plusTone.bg} ${plusTone.value}`}>
-                      {formatWobaPlus(s.wobaPlus)}
-                    </span>
-                  </div>
-                </div>
-                <div className="text-xs text-gray-500 mt-1 grid grid-cols-4 gap-1">
-                  <span>{s.games}場</span>
-                  <span>{s.ab}打數</span>
-                  <span>{s.h}安打</span>
-                  <span>AVG {formatAvg(s.avg)}</span>
-                </div>
-              </button>
-            </Card>
-            );
-          })}
+      <Card className="space-y-3 bg-sky-50 border-sky-200">
+        <div>
+          <h3 className="font-semibold text-sky-900">公開統計連結</h3>
+          <p className="text-xs text-sky-800 mt-1">
+            發布後任何人可透過連結唯讀查看賽季／累計成績與雷達圖，無需登入。
+          </p>
         </div>
-      )}
-
-      {playerStats && (
-        <PlayerStatsSheet
-          stats={playerStats}
-          teamAvgWoba={teamAvgWoba}
-          onClose={() => setSelectedPlayer(null)}
+        <Input
+          label="隊伍代碼"
+          placeholder="例：hope-softball"
+          value={teamCodeInput}
+          onChange={(e) => setTeamCodeInput(e.target.value)}
         />
-      )}
+        <p className="text-[10px] text-sky-700 -mt-2">
+          將用於網址：?view=stats&amp;team=隊伍代碼（僅英文小寫、數字、連字號）
+        </p>
+        <div className="flex gap-2">
+          <Button
+            onClick={() => void handlePublish()}
+            disabled={publishing}
+            className="flex-1 !py-2.5"
+          >
+            {publishing ? '發布中…' : '發布公開統計'}
+          </Button>
+          {shareUrl && (
+            <Button variant="secondary" onClick={() => void handleCopyLink()} className="flex-1 !py-2.5">
+              複製連結
+            </Button>
+          )}
+        </div>
+        {shareUrl && (
+          <div className="rounded-lg bg-white border border-sky-200 px-3 py-2">
+            <p className="text-[10px] text-gray-500 mb-1">分享連結</p>
+            <p className="text-xs text-sky-900 break-all select-all">{shareUrl}</p>
+          </div>
+        )}
+        {lastPublishedAt && (
+          <p className="text-[10px] text-sky-700">
+            上次發布：{new Date(lastPublishedAt).toLocaleString('zh-TW')}
+          </p>
+        )}
+        {publishStatus && (
+          <p className={`text-xs ${publishStatus.includes('失敗') || publishStatus.includes('請') ? 'text-red-600' : 'text-emerald-700'}`}>
+            {publishStatus}
+          </p>
+        )}
+      </Card>
+
+      <StatsView players={players} seasons={seasons} games={games} />
     </div>
   );
 }

@@ -7,10 +7,13 @@ interface Props {
   stats: BattingStats;
   teamAvgWoba: number;
   onClose: () => void;
+  hasBottomNav?: boolean;
 }
 
-export function PlayerStatsSheet({ stats, teamAvgWoba, onClose }: Props) {
+export function PlayerStatsSheet({ stats, teamAvgWoba, onClose, hasBottomNav = true }: Props) {
   const plusTone = getWobaPlusTone(stats.wobaPlus);
+  const sheetBottom = hasBottomNav ? 'bottom-16' : 'bottom-0';
+  const sheetMaxH = hasBottomNav ? 'max-h-[calc(100dvh-4.5rem)]' : 'max-h-[85dvh]';
 
   return (
     <>
@@ -20,7 +23,7 @@ export function PlayerStatsSheet({ stats, teamAvgWoba, onClose }: Props) {
         className="fixed inset-0 z-[60] bg-black/40"
         onClick={onClose}
       />
-      <div className="fixed inset-x-0 bottom-16 z-[70] bg-white rounded-t-2xl shadow-2xl max-h-[calc(100dvh-4.5rem)] flex flex-col">
+      <div className={`fixed inset-x-0 z-[70] bg-white rounded-t-2xl shadow-2xl flex flex-col ${sheetBottom} ${sheetMaxH}`}>
         <div className="flex-shrink-0 px-4 pt-4 pb-2 border-b border-gray-100">
           <div className="flex items-center justify-between">
             <div>

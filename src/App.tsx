@@ -11,6 +11,8 @@ import { RecorderApp } from './components/RecorderApp';
 import { GamesPanel } from './components/GamesPanel';
 import { RecordPanel } from './components/RecordPanel';
 import { StatsPanel } from './components/StatsPanel';
+import { PublicStatsApp } from './components/PublicStatsApp';
+import { getPublicStatsParams } from './utils/publicStats';
 import { PlayersPanel } from './components/PlayersPanel';
 import { SettingsPanel } from './components/SettingsPanel';
 
@@ -178,7 +180,13 @@ function HostApp() {
           />
         )}
         {tab === 'stats' && (
-          <StatsPanel players={data.players} seasons={data.seasons} games={data.games} />
+          <StatsPanel
+            players={data.players}
+            seasons={data.seasons}
+            games={data.games}
+            teamName={data.ownerName}
+            publishedBy={data.ownerName}
+          />
         )}
         {tab === 'players' && (
           <PlayersPanel players={data.players} onAddPlayer={addPlayer} onDeletePlayer={deletePlayer} />
@@ -202,6 +210,10 @@ function HostApp() {
 function App() {
   if (getRecorderParams()) {
     return <RecorderApp />;
+  }
+  const publicStats = getPublicStatsParams();
+  if (publicStats) {
+    return <PublicStatsApp teamCode={publicStats.team} />;
   }
   return <HostApp />;
 }

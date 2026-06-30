@@ -175,6 +175,17 @@ export interface UserData {
   updatedAt: string;
 }
 
+/** 發布至 Firebase 的公開統計快照（唯讀查詢用） */
+export interface PublicStatsSnapshot {
+  teamCode: string;
+  teamName: string;
+  players: Player[];
+  seasons: Season[];
+  games: Game[];
+  updatedAt: string;
+  publishedBy?: string;
+}
+
 export interface BattingStats {
   playerId: string;
   playerName: string;
