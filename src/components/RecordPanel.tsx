@@ -83,7 +83,7 @@ function ScorePicker({
           </button>
         ))}
       </div>
-      <p className="text-xs text-gray-500 text-center mt-4 mb-2">出局數</p>
+      <p className="text-xs text-gray-500 text-center mt-4 mb-2">該打席造成出局數</p>
       <div className="grid grid-cols-4 gap-2">
         {[0, 1, 2, 3].map((n) => (
           <button

@@ -1,5 +1,5 @@
 import type { Game, LineupEntry, Player, Position } from '../types';
-import { POSITIONS } from '../types';
+import { BATTING_ORDERS, MAX_BATTING_ORDER, POSITIONS } from '../types';
 import { touchLineup } from '../utils/gameLogic';
 import { Card } from './ui';
 interface Props {
@@ -22,7 +22,7 @@ export function LineupPanel({ game, players, onUpdate }: Props) {
     } else {
       const usedOrders = game.lineup.filter((l) => l.isActive).map((l) => l.battingOrder);
       let nextOrder = 1;
-      while (usedOrders.includes(nextOrder) && nextOrder <= 9) nextOrder++;
+      while (usedOrders.includes(nextOrder) && nextOrder < MAX_BATTING_ORDER) nextOrder++;
       const entry: LineupEntry = {
         playerId,
         battingOrder: nextOrder,
@@ -71,7 +71,7 @@ export function LineupPanel({ game, players, onUpdate }: Props) {
                         updateEntry(player.id, { battingOrder: Number(e.target.value) })
                       }
                     >
-                      {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((n) => (
+                      {BATTING_ORDERS.map((n) => (
                         <option key={n} value={n}>{n} 棒</option>
                       ))}
                     </select>

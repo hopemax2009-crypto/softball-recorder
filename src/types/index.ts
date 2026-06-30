@@ -49,6 +49,10 @@ export const POSITIONS: { value: Position; label: string }[] = [
 
 export const OUT_RESULTS: AtBatResult[] = ['SO', 'FO', 'GO', 'SF'];
 
+/** 先發打序最大棒次（壘球常見 15 人 + 指定打擊等） */
+export const MAX_BATTING_ORDER = 16;
+export const BATTING_ORDERS: number[] = Array.from({ length: MAX_BATTING_ORDER }, (_, i) => i + 1);
+
 export interface Player {
   id: string;
   name: string;
