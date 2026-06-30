@@ -128,6 +128,7 @@ function RecordSheetOverlay({
   pendingOuts,
   editRbi,
   editOuts,
+  hasBottomNav,
   onClose,
   onResultClick,
   onPendingRbi,
@@ -148,6 +149,7 @@ function RecordSheetOverlay({
   pendingOuts: number;
   editRbi: number;
   editOuts: number;
+  hasBottomNav: boolean;
   onClose: () => void;
   onResultClick: (result: AtBatResult) => void;
   onPendingRbi: (n: number) => void;
@@ -165,17 +167,22 @@ function RecordSheetOverlay({
   const sheetPlayer = players.find((p) => p.id === sheetPlayerId);
   const sheetEntry = activeLineup.find((l) => l.playerId === sheetPlayerId);
 
+  const sheetBottom = hasBottomNav ? 'bottom-16' : 'bottom-0';
+  const sheetMaxH = hasBottomNav ? 'max-h-[calc(100dvh-4.5rem)]' : 'max-h-[85dvh]';
+
   return (
     <>
       <button
         type="button"
         aria-label="關閉"
-        className="fixed inset-0 z-40 bg-black/40"
+        className="fixed inset-0 z-[60] bg-black/40"
         onClick={onClose}
       />
-      <div className="fixed inset-x-0 bottom-0 z-50 bg-white rounded-t-2xl shadow-2xl max-h-[88vh] overflow-y-auto">
-        <div className="p-4 pb-6">
-          <div className="flex items-center justify-between mb-4">
+      <div
+        className={`fixed inset-x-0 z-[70] bg-white rounded-t-2xl shadow-2xl overflow-hidden flex flex-col ${sheetBottom} ${sheetMaxH}`}
+      >
+        <div className="flex-shrink-0 px-4 pt-4 pb-2 border-b border-gray-100">
+          <div className="flex items-center justify-between">
             <div>
               <p className="text-xs text-gray-500">
                 {recordSheet.type === 'new' ? '紀錄打席' : '編輯打席'}
@@ -195,7 +202,9 @@ function RecordSheetOverlay({
               ✕
             </button>
           </div>
+        </div>
 
+        <div className="flex-1 overflow-y-auto overscroll-contain px-4 py-3 pb-[calc(env(safe-area-inset-bottom,0px)+1rem)]">
           {recordSheet.type === 'new' && !showRbiPicker && (
             <div className="grid grid-cols-3 gap-2">
               {AT_BAT_RESULTS.map((r) => (
@@ -246,6 +255,7 @@ interface Props {
   players: Player[];
   activeGame: Game | null;
   recorderMode?: boolean;
+  hasBottomNav?: boolean;
   syncState?: SharedSyncState | LiveSyncState | null;
   onSyncNow?: () => void;
   onSelectGame: (game: Game | null) => void;
@@ -257,6 +267,7 @@ export function RecordPanel({
   players: playersProp,
   activeGame,
   recorderMode = false,
+  hasBottomNav = false,
   syncState,
   onSyncNow,
   onSelectGame,
@@ -620,6 +631,7 @@ export function RecordPanel({
                 pendingOuts={pendingOuts}
                 editRbi={editRbi}
                 editOuts={editOuts}
+                hasBottomNav={hasBottomNav}
                 onClose={closeRecordSheet}
                 onResultClick={handleResultClick}
                 onPendingRbi={setPendingRbi}

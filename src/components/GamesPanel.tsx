@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { Game, Season } from '../types';
 import { isFirebaseConfigured } from '../config/firebase';
 import { createLiveRoom, fetchLiveRoom, generatePin } from '../services/liveRoomSync';
@@ -11,7 +11,7 @@ interface Props {
   games: Game[];
   players: import('../types').Player[];
   ownerName: string;
-  onAddSeason: (name: string, year: number) => void;
+  onAddSeason: (name: string, year: number) => import('../types').Season | undefined;
   onAddGame: (seasonId: string, date: string, opponent: string, location?: string, isHomeTeam?: boolean) => Game | undefined;
   onSelectGame: (game: Game) => void;
   onDeleteGame: (gameId: string) => void;
@@ -34,6 +34,14 @@ export function GamesPanel({
   const [seasonName, setSeasonName] = useState('');
   const [seasonYear, setSeasonYear] = useState(new Date().getFullYear());
   const [selectedSeason, setSelectedSeason] = useState(seasons[0]?.id ?? '');
+
+  useEffect(() => {
+    if (seasons.length === 0) return;
+    setSelectedSeason((prev) => {
+      if (prev && seasons.some((s) => s.id === prev)) return prev;
+      return seasons[0].id;
+    });
+  }, [seasons]);
   const [opponent, setOpponent] = useState('');
   const [location, setLocation] = useState('');
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
@@ -71,17 +79,23 @@ export function GamesPanel({
 
   const handleAddSeason = () => {
     if (!seasonName.trim()) return;
-    onAddSeason(seasonName.trim(), seasonYear);
+    const season = onAddSeason(seasonName.trim(), seasonYear);
+    if (season) setSelectedSeason(season.id);
     setSeasonName('');
     setShowAddSeason(false);
   };
 
   const handleAddGame = () => {
-    if (!selectedSeason || !opponent.trim()) return;
+    if (!selectedSeason) {
+      setStatus('請先選擇賽季');
+      return;
+    }
+    if (!opponent.trim()) return;
     onAddGame(selectedSeason, date, opponent.trim(), location.trim() || undefined, isHomeTeam);
     setOpponent('');
     setLocation('');
     setShowAddGame(false);
+    setStatus('');
   };
 
   const handleStartLive = async (game: Game) => {

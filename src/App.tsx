@@ -146,6 +146,7 @@ function HostApp() {
             onSyncNow={pushNow}
             onSelectGame={handleSelectGame}
             onUpdateGame={handleUpdateGame}
+            hasBottomNav
           />
         )}
         {tab === 'games' && (
