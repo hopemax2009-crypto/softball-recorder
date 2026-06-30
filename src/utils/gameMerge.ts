@@ -94,5 +94,8 @@ export function mergeGames(local: Game, remote: Game): Game {
   const liveRoomId = base.liveRoomId ?? local.liveRoomId ?? remote.liveRoomId;
   if (liveRoomId) merged.liveRoomId = liveRoomId;
 
+  const liveRoomPin = base.liveRoomPin ?? local.liveRoomPin ?? remote.liveRoomPin;
+  if (liveRoomPin) merged.liveRoomPin = liveRoomPin;
+
   return merged;
 }

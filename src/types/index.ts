@@ -135,6 +135,7 @@ export interface Game {
   shareCode?: string;
   syncUpdatedAt?: string;
   liveRoomId?: string;
+  liveRoomPin?: string;
   rosterSnapshot?: { id: string; name: string; number?: string }[];
 }
 

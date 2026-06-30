@@ -47,7 +47,13 @@ export async function createLiveRoom(
     pin,
     hostName,
     opponent: game.opponent,
-    game: normalizeGame({ ...game, liveRoomId: id, isShared: true, syncUpdatedAt: new Date().toISOString() }),
+    game: normalizeGame({
+      ...game,
+      liveRoomId: id,
+      liveRoomPin: pin,
+      isShared: true,
+      syncUpdatedAt: new Date().toISOString(),
+    }),
     players,
     updatedAt: new Date().toISOString(),
   });
@@ -93,6 +99,12 @@ export function subscribeLiveRoom(
     },
     (err) => onError(err.message)
   );
+}
+
+export async function fetchLiveRoom(roomId: string): Promise<LiveRoom | null> {
+  const snap = await get(roomRef(roomId));
+  const raw = snap.val() as LiveRoom | null;
+  return raw ? normalizeRoom(raw) : null;
 }
 
 export async function joinLiveRoom(roomId: string, pin: string): Promise<LiveRoom> {

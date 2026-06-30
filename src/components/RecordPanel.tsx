@@ -271,6 +271,7 @@ export function RecordPanel({
 
   const showSync = (activeGame.isShared || activeGame.liveRoomId) && syncState;
   const isLiveSync = syncState && 'connected' in syncState;
+  const subTabs: RecordSubTab[] = recorderMode ? ['record', 'positions'] : ['record', 'lineup', 'positions'];
 
   return (
     <div className="p-3 space-y-3">
@@ -316,31 +317,29 @@ export function RecordPanel({
         </div>
       )}
 
-      {!recorderMode && (
-        <div className="flex gap-1 bg-gray-100 rounded-xl p-1">
-          {(['record', 'lineup', 'positions'] as RecordSubTab[]).map((t) => (
-            <button
-              key={t}
-              onClick={() => setSubTab(t)}
-              className={`flex-1 py-2 rounded-lg text-xs font-medium ${
-                subTab === t ? 'bg-white shadow text-field-green' : 'text-gray-500'
-              }`}
-            >
-              {t === 'record' ? '紀錄' : t === 'lineup' ? '先發' : '守位'}
-            </button>
-          ))}
-        </div>
-      )}
+      <div className="flex gap-1 bg-gray-100 rounded-xl p-1">
+        {subTabs.map((t) => (
+          <button
+            key={t}
+            onClick={() => setSubTab(t)}
+            className={`flex-1 py-2 rounded-lg text-xs font-medium ${
+              subTab === t ? 'bg-white shadow text-field-green' : 'text-gray-500'
+            }`}
+          >
+            {t === 'record' ? '紀錄' : t === 'lineup' ? '先發' : '守位'}
+          </button>
+        ))}
+      </div>
 
       {!recorderMode && subTab === 'lineup' && (
         <LineupPanel game={activeGame} players={players} onUpdate={onUpdateGame} />
       )}
 
-      {!recorderMode && subTab === 'positions' && (
+      {subTab === 'positions' && (
         <PositionPanel game={activeGame} players={players} />
       )}
 
-      {(recorderMode || subTab === 'record') && (
+      {subTab === 'record' && (
         <>
           <div className="text-center text-sm bg-gray-50 rounded-xl py-2">
             <span className="font-bold text-field-green">

@@ -10,16 +10,15 @@ interface Props {
 }
 
 export function PositionPanel({ game, players }: Props) {
-  const activeLineup = game.lineup.filter((l) => l.isActive && l.position !== 'BN');
-
+  const lineup = game.lineup ?? [];
+  const activeLineup = lineup.filter((l) => l.isActive && l.position !== 'BN');
   const getPlayerAtPosition = (pos: Position) => {
     const entry = activeLineup.find((l) => l.position === pos);
     if (!entry) return null;
     return players.find((p) => p.id === entry.playerId);
   };
 
-  const bench = game.lineup.filter((l) => l.isActive && l.position === 'BN');
-
+  const bench = lineup.filter((l) => l.isActive && l.position === 'BN');
   return (
     <div className="space-y-4">
       <Card className="bg-field-green/5">

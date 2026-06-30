@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { Game, Season } from '../types';
 import { isFirebaseConfigured } from '../config/firebase';
-import { createLiveRoom, generatePin } from '../services/liveRoomSync';
+import { createLiveRoom, fetchLiveRoom, generatePin } from '../services/liveRoomSync';
 import { saveHostRoom, loadHostRoom } from '../utils/hostRoomStorage';
 import { QRShareModal } from './QRShareModal';
 import { Button, Card, EmptyState, Input, Select } from './ui';
@@ -46,6 +46,11 @@ export function GamesPanel({
     .filter((g) => !selectedSeason || g.seasonId === selectedSeason)
     .sort((a, b) => b.date.localeCompare(a.date));
 
+  const openQrModal = (roomId: string, pin: string, opponentName: string, gameId: string) => {
+    saveHostRoom({ gameId, roomId, pin });
+    setQrModal({ roomId, pin, opponent: opponentName });
+  };
+
   const handleAddSeason = () => {
     if (!seasonName.trim()) return;
     onAddSeason(seasonName.trim(), seasonYear);
@@ -76,13 +81,52 @@ export function GamesPanel({
     try {
       const pin = generatePin();
       const room = await createLiveRoom(game, players, ownerName, pin);
-      saveHostRoom({ gameId: game.id, roomId: room.roomId, pin: room.pin });
       onUpsertGame(room.game);
-      setQrModal({ roomId: room.roomId, pin: room.pin, opponent: game.opponent });
+      openQrModal(room.roomId, room.pin, game.opponent, game.id);
     } catch (e) {
       setStatus(e instanceof Error ? e.message : '開啟失敗');
     } finally {
       setBusy(false);
+    }
+  };
+
+  const handleShowQr = async (game: Game) => {
+    if (!game.liveRoomId) return;
+    if (!isFirebaseConfigured()) {
+      setStatus('雲端尚未設定，無法顯示 QR');
+      return;
+    }
+
+    const cachedPin = game.liveRoomPin ?? loadHostRoom(game.id)?.pin;
+    if (cachedPin) {
+      openQrModal(game.liveRoomId, cachedPin, game.opponent, game.id);
+      return;
+    }
+
+    setBusy(true);
+    setStatus('');
+    try {
+      const room = await fetchLiveRoom(game.liveRoomId);
+      if (!room) {
+        setStatus('找不到共用場次，請重新開啟 QR 共用');
+        return;
+      }
+      openQrModal(room.roomId, room.pin, game.opponent, game.id);
+      if (!game.liveRoomPin) {
+        onUpsertGame({ ...game, liveRoomPin: room.pin });
+      }
+    } catch (e) {
+      setStatus(e instanceof Error ? e.message : '無法載入 QR');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleQrAction = (game: Game) => {
+    if (game.liveRoomId) {
+      void handleShowQr(game);
+    } else {
+      void handleStartLive(game);
     }
   };
 
@@ -171,7 +215,9 @@ export function GamesPanel({
 
       {status && (
         <p className={`text-sm text-center rounded-xl py-2 px-3 ${
-          status.includes('失敗') || status.includes('尚未') ? 'bg-red-50 text-red-600' : 'bg-green-50 text-field-green'
+          status.includes('失敗') || status.includes('尚未') || status.includes('找不到') || status.includes('無法')
+            ? 'bg-red-50 text-red-600'
+            : 'bg-green-50 text-field-green'
         }`}>{status}</p>
       )}
 
@@ -181,40 +227,42 @@ export function GamesPanel({
         <div className="space-y-3">
           {filteredGames.map((game) => {
             const season = seasons.find((s) => s.id === game.seasonId);
+            const hasLive = !!game.liveRoomId;
             return (
               <Card key={game.id}>
-                <div className="flex items-start justify-between gap-2">
-                  <button onClick={() => onSelectGame(game)} className="flex-1 text-left">
-                    <div className="font-semibold flex items-center gap-2">
+                <div className="flex items-start gap-3">
+                  <button type="button" onClick={() => onSelectGame(game)} className="flex-1 text-left min-h-[48px]">
+                    <div className="font-semibold flex items-center gap-2 flex-wrap">
                       {game.opponent}
-                      {game.liveRoomId && (
+                      {hasLive && (
                         <span className="text-[10px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">即時共用中</span>
                       )}
                     </div>
                     <div className="text-sm text-gray-500">{game.date} · {season?.name} · {game.atBats.length} 打席</div>
                   </button>
-                  <div className="flex flex-col gap-1 shrink-0">
-                    {!game.liveRoomId ? (
-                      <button
-                        onClick={() => handleStartLive(game)}
-                        disabled={busy}
-                        className="text-xs bg-field-green text-white px-2 py-1.5 rounded-lg font-medium"
-                      >
-                        開啟 QR 共用
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => {
-                          const info = loadHostRoom(game.id);
-                          if (info) setQrModal({ roomId: info.roomId, pin: info.pin, opponent: game.opponent });
-                        }}
-                        className="text-xs border border-field-green text-field-green px-2 py-1.5 rounded-lg"
-                      >
-                        顯示 QR
-                      </button>
-                    )}
-                    <button onClick={() => { if (confirm('確定刪除？')) onDeleteGame(game.id); }} className="text-red-400 text-sm px-2">刪除</button>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleQrAction(game)}
+                    disabled={busy}
+                    className={`shrink-0 text-sm font-medium px-3 py-3 rounded-xl min-w-[96px] min-h-[48px] ${
+                      hasLive
+                        ? 'border-2 border-field-green text-field-green bg-white'
+                        : 'bg-field-green text-white'
+                    } ${busy ? 'opacity-60' : ''}`}
+                  >
+                    {busy ? '載入中…' : hasLive ? '顯示 QR' : '開啟 QR 共用'}
+                  </button>
+                </div>
+                <div className="mt-3 pt-2 border-t border-gray-100">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (confirm(`確定刪除 vs ${game.opponent} 這場比賽？`)) onDeleteGame(game.id);
+                    }}
+                    className="text-xs text-red-400 py-1 px-1"
+                  >
+                    刪除比賽
+                  </button>
                 </div>
               </Card>
             );
