@@ -10,15 +10,16 @@ import {
   pullFromGitHub,
 } from '../services/github';
 import { downloadJson, importData } from '../utils/storage';
+import { getTeamCode, normalizeTeamCode, setTeamCode } from '../utils/teamStorage';
 import { Button, Card, Input } from './ui';
 
 interface Props {
   data: UserData;
   onReplaceData: (data: UserData) => void;
-  onResetOwner: () => void;
+  onLogout: () => void;
 }
 
-export function SettingsPanel({ data, onReplaceData, onResetOwner }: Props) {
+export function SettingsPanel({ data, onReplaceData, onLogout }: Props) {
   const fileRef = useRef<HTMLInputElement>(null);
   const existingConfig = loadGitHubConfig();
 
@@ -26,6 +27,7 @@ export function SettingsPanel({ data, onReplaceData, onResetOwner }: Props) {
   const [owner, setOwner] = useState(existingConfig?.owner ?? '');
   const [repo, setRepo] = useState(existingConfig?.repo ?? '');
   const [branch, setBranch] = useState(existingConfig?.branch ?? 'main');
+  const [teamCode, setTeamCodeInput] = useState(getTeamCode());
   const [syncStatus, setSyncStatus] = useState('');
   const [syncing, setSyncing] = useState(false);
 
@@ -125,6 +127,33 @@ export function SettingsPanel({ data, onReplaceData, onResetOwner }: Props) {
       </Card>
 
       <Card className="space-y-3">
+        <h3 className="font-semibold">團隊共用比賽</h3>
+        <p className="text-xs text-gray-500">
+          設定團隊代碼後，可在「比賽」頁面建立或加入共用比賽。進入共用比賽後每 8 秒自動同步。
+        </p>
+        <Input
+          label="團隊代碼"
+          placeholder="例：tigers-2025"
+          value={teamCode}
+          onChange={(e) => setTeamCodeInput(e.target.value)}
+        />
+        <Button
+          variant="secondary"
+          onClick={() => {
+            if (!teamCode.trim()) {
+              setSyncStatus('請輸入團隊代碼');
+              return;
+            }
+            setTeamCode(teamCode);
+            setSyncStatus(`團隊代碼已儲存：${normalizeTeamCode(teamCode)}`);
+          }}
+          className="w-full"
+        >
+          儲存團隊代碼
+        </Button>
+      </Card>
+
+      <Card className="space-y-3">
         <h3 className="font-semibold">GitHub 雲端同步</h3>
         <p className="text-xs text-gray-500">
           使用 Personal Access Token 將資料儲存至 GitHub 私人儲存庫。
@@ -202,14 +231,11 @@ export function SettingsPanel({ data, onReplaceData, onResetOwner }: Props) {
       <Card>
         <button
           onClick={() => {
-            if (confirm('確定要重設使用者？本機資料將被清除。')) {
-              localStorage.clear();
-              onResetOwner();
-            }
+            if (confirm('確定要登出？')) onLogout();
           }}
-          className="text-red-500 text-sm w-full text-center"
+          className="text-red-500 text-sm w-full text-center py-1"
         >
-          重設使用者
+          登出
         </button>
       </Card>
     </div>

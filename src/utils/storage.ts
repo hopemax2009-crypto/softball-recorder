@@ -1,12 +1,17 @@
 import type { UserData } from '../types';
+import { migrateUserData } from './migrate';
 
-const STORAGE_KEY = 'softball-recorder-data';
-const OWNER_KEY = 'softball-recorder-owner';
+const LEGACY_DATA_KEY = 'softball-recorder-data';
+const LEGACY_OWNER_KEY = 'softball-recorder-owner';
+
+function dataKey(userId: string): string {
+  return `softball-recorder-data-${userId}`;
+}
 
 export function createEmptyData(ownerId: string, ownerName: string): UserData {
   const now = new Date().toISOString();
   return {
-    version: 1,
+    version: 2,
     ownerId,
     ownerName,
     players: [],
@@ -16,33 +21,36 @@ export function createEmptyData(ownerId: string, ownerName: string): UserData {
   };
 }
 
-export function loadData(): UserData | null {
+export function loadData(userId: string): UserData | null {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    return JSON.parse(raw) as UserData;
+    const raw = localStorage.getItem(dataKey(userId));
+    if (!raw) return tryLegacyMigration(userId);
+    const data = JSON.parse(raw) as UserData;
+    return migrateUserData(data);
+  } catch {
+    return null;
+  }
+}
+
+function tryLegacyMigration(userId: string): UserData | null {
+  try {
+    const raw = localStorage.getItem(LEGACY_DATA_KEY);
+    const ownerRaw = localStorage.getItem(LEGACY_OWNER_KEY);
+    if (!raw || !ownerRaw) return null;
+    const owner = JSON.parse(ownerRaw) as { id: string; name: string };
+    if (owner.id !== userId) return null;
+    const data = migrateUserData(JSON.parse(raw) as UserData);
+    saveData(data);
+    localStorage.removeItem(LEGACY_DATA_KEY);
+    return data;
   } catch {
     return null;
   }
 }
 
 export function saveData(data: UserData): void {
-  const updated = { ...data, updatedAt: new Date().toISOString() };
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-}
-
-export function getOwnerInfo(): { id: string; name: string } | null {
-  try {
-    const raw = localStorage.getItem(OWNER_KEY);
-    if (!raw) return null;
-    return JSON.parse(raw);
-  } catch {
-    return null;
-  }
-}
-
-export function setOwnerInfo(id: string, name: string): void {
-  localStorage.setItem(OWNER_KEY, JSON.stringify({ id, name }));
+  const updated = { ...migrateUserData(data), updatedAt: new Date().toISOString() };
+  localStorage.setItem(dataKey(updated.ownerId), JSON.stringify(updated));
 }
 
 export function exportData(data: UserData): string {
@@ -54,7 +62,7 @@ export function importData(json: string): UserData {
   if (!parsed.version || !Array.isArray(parsed.games)) {
     throw new Error('無效的資料格式');
   }
-  return parsed;
+  return migrateUserData(parsed);
 }
 
 export function downloadJson(data: UserData, filename?: string): void {

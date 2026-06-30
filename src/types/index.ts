@@ -10,8 +10,11 @@ export type AtBatResult =
   | 'SF'
   | 'HBP'
   | 'E'
-  | 'FC'
-  | 'IF';
+  | 'FC';
+
+export type HalfInning = 'top' | 'bottom';
+
+export type Position = 'P' | 'C' | '1B' | '2B' | '3B' | 'SS' | 'LF' | 'CF' | 'RF' | 'DH' | 'EP' | 'FLEX' | 'BN';
 
 export const AT_BAT_RESULTS: { value: AtBatResult; label: string; short: string }[] = [
   { value: '1B', label: '一壘安打', short: '1B' },
@@ -23,11 +26,28 @@ export const AT_BAT_RESULTS: { value: AtBatResult; label: string; short: string 
   { value: 'SO', label: '三振', short: 'K' },
   { value: 'FO', label: '飛球出局', short: 'FO' },
   { value: 'GO', label: '滾地球出局', short: 'GO' },
-  { value: 'IF', label: '內野飛球', short: 'IF' },
   { value: 'SF', label: '高飛犧牲打', short: 'SF' },
   { value: 'FC', label: '野選', short: 'FC' },
   { value: 'E', label: '失誤上壘', short: 'E' },
 ];
+
+export const POSITIONS: { value: Position; label: string }[] = [
+  { value: 'P', label: '投手 P' },
+  { value: 'C', label: '捕手 C' },
+  { value: '1B', label: '一壘 1B' },
+  { value: '2B', label: '二壘 2B' },
+  { value: '3B', label: '三壘 3B' },
+  { value: 'SS', label: '游擊 SS' },
+  { value: 'LF', label: '左外 LF' },
+  { value: 'CF', label: '中外 CF' },
+  { value: 'RF', label: '右外 RF' },
+  { value: 'DH', label: '指定 DH' },
+  { value: 'EP', label: '自由 EP' },
+  { value: 'FLEX', label: '彈性 FLEX' },
+  { value: 'BN', label: '板凳 BN' },
+];
+
+export const OUT_RESULTS: AtBatResult[] = ['SO', 'FO', 'GO', 'SF'];
 
 export interface Player {
   id: string;
@@ -43,13 +63,57 @@ export interface Season {
   createdAt: string;
 }
 
+export interface LineupEntry {
+  playerId: string;
+  battingOrder: number;
+  position: Position;
+  isActive: boolean;
+}
+
+export interface OpponentScore {
+  inning: number;
+  half: HalfInning;
+  runs: number;
+}
+
 export interface AtBat {
   id: string;
   playerId: string;
   result: AtBatResult;
   rbi: number;
-  inning?: number;
+  outs: number;
+  inning: number;
+  half: HalfInning;
   note?: string;
+  updatedAt?: string;
+}
+
+export interface SharedGameMeta {
+  gameId: string;
+  shareCode: string;
+  teamCode: string;
+  opponent: string;
+  date: string;
+  createdAt: string;
+  createdBy: string;
+}
+
+export interface SharedGameRegistryEntry {
+  shareCode: string;
+  gameId: string;
+  opponent: string;
+  date: string;
+  createdAt: string;
+}
+
+export interface SharedGameRegistry {
+  entries: SharedGameRegistryEntry[];
+}
+
+export interface SharedGameFile {
+  game: Game;
+  syncUpdatedAt: string;
+  updatedBy?: string;
 }
 
 export interface Game {
@@ -58,8 +122,20 @@ export interface Game {
   date: string;
   opponent: string;
   location?: string;
+  isHomeTeam: boolean;
+  totalInnings: number;
+  lineup: LineupEntry[];
+  opponentScores: OpponentScore[];
+  currentInning: number;
+  currentHalf: HalfInning;
   atBats: AtBat[];
   createdAt: string;
+  isShared?: boolean;
+  teamCode?: string;
+  shareCode?: string;
+  syncUpdatedAt?: string;
+  liveRoomId?: string;
+  rosterSnapshot?: { id: string; name: string; number?: string }[];
 }
 
 export interface UserData {
@@ -87,6 +163,8 @@ export interface BattingStats {
   hbp: number;
   so: number;
   sf: number;
+  fo: number;
+  go: number;
   avg: number;
   obp: number;
   slg: number;
@@ -100,4 +178,12 @@ export interface GitHubConfig {
   branch: string;
 }
 
+export interface AuthSession {
+  userId: string;
+  username: string;
+  displayName: string;
+}
+
 export type TabId = 'games' | 'record' | 'stats' | 'players' | 'settings';
+
+export type RecordSubTab = 'record' | 'lineup' | 'positions';

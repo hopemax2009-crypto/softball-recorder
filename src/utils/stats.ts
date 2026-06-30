@@ -51,6 +51,8 @@ export function calculatePlayerStats(
   let hbp = 0;
   let so = 0;
   let sf = 0;
+  let fo = 0;
+  let go = 0;
   let totalBases = 0;
 
   for (const game of filteredGames) {
@@ -89,6 +91,12 @@ export function calculatePlayerStats(
         case 'SF':
           sf++;
           break;
+        case 'FO':
+          fo++;
+          break;
+        case 'GO':
+          go++;
+          break;
       }
       rbi += atBat.rbi;
     }
@@ -114,6 +122,8 @@ export function calculatePlayerStats(
     hbp,
     so,
     sf,
+    fo,
+    go,
     avg: formatRate(avg),
     obp: formatRate(obp),
     slg: formatRate(slg),
@@ -149,12 +159,11 @@ export function getResultLabel(result: AtBatResult): string {
     { value: 'SO', label: '三振' },
     { value: 'FO', label: '飛球出局' },
     { value: 'GO', label: '滾地球出局' },
-    { value: 'IF', label: '內野飛球' },
     { value: 'SF', label: '高飛犧牲打' },
     { value: 'FC', label: '野選' },
     { value: 'E', label: '失誤上壘' },
   ].find((r) => r.value === result);
-  return found?.label ?? result;
+  return found?.label ?? ((result as string) === 'IF' ? '內野飛球' : result);
 }
 
 export function summarizeAtBat(atBat: AtBat, playerName: string): string {
