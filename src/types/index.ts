@@ -10,7 +10,8 @@ export type AtBatResult =
   | 'SF'
   | 'HBP'
   | 'E'
-  | 'FC';
+  | 'FC'
+  | 'DP';
 
 export type HalfInning = 'top' | 'bottom';
 
@@ -26,6 +27,7 @@ export const AT_BAT_RESULTS: { value: AtBatResult; label: string; short: string 
   { value: 'SO', label: '三振', short: 'K' },
   { value: 'FO', label: '飛球出局', short: 'FO' },
   { value: 'GO', label: '滾地球出局', short: 'GO' },
+  { value: 'DP', label: '雙殺', short: 'DP' },
   { value: 'SF', label: '高飛犧牲打', short: 'SF' },
   { value: 'FC', label: '野選', short: 'FC' },
   { value: 'E', label: '失誤上壘', short: 'E' },
@@ -47,7 +49,23 @@ export const POSITIONS: { value: Position; label: string }[] = [
   { value: 'BN', label: '板凳 BN' },
 ];
 
-export const OUT_RESULTS: AtBatResult[] = ['SO', 'FO', 'GO', 'SF'];
+export const OUT_RESULTS: AtBatResult[] = ['SO', 'FO', 'GO', 'SF', 'DP'];
+
+/** 選擇打席結果時的預設出局數 */
+export function getDefaultOutsForResult(result: AtBatResult): number {
+  switch (result) {
+    case 'SO':
+    case 'FO':
+    case 'GO':
+    case 'SF':
+    case 'FC':
+      return 1;
+    case 'DP':
+      return 2;
+    default:
+      return 0;
+  }
+}
 
 /** 先發打序最大棒次（壘球常見 15 人 + 指定打擊等） */
 export const MAX_BATTING_ORDER = 16;
@@ -143,6 +161,8 @@ export interface Game {
   liveRoomPin?: string;
   lineupUpdatedAt?: string;
   rosterSnapshot?: { id: string; name: string; number?: string }[];
+  /** 比賽已結束（可關閉 QR 共用） */
+  isCompleted?: boolean;
 }
 
 export interface UserData {
@@ -172,6 +192,7 @@ export interface BattingStats {
   sf: number;
   fo: number;
   go: number;
+  dp: number;
   avg: number;
   obp: number;
   slg: number;

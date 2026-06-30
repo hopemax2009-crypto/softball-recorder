@@ -118,6 +118,7 @@ export function StatsPanel({ players, seasons, games }: Props) {
                 <div><span className="font-bold">{playerStats.so}</span><br /><span className="text-gray-500 text-xs">三振</span></div>
                 <div><span className="font-bold">{playerStats.fo}</span><br /><span className="text-gray-500 text-xs">飛球出局</span></div>
                 <div><span className="font-bold">{playerStats.go}</span><br /><span className="text-gray-500 text-xs">滾球出局</span></div>
+                <div><span className="font-bold">{playerStats.dp}</span><br /><span className="text-gray-500 text-xs">雙殺</span></div>
                 <div><span className="font-bold">{playerStats.sf}</span><br /><span className="text-gray-500 text-xs">犧飛</span></div>
               </div>
             </Card>

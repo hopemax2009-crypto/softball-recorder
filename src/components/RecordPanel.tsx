@@ -1,15 +1,19 @@
 import { useEffect, useState } from 'react';
 import { v4 as uuid } from 'uuid';
 import type { AtBat, AtBatResult, Game, HalfInning, Player, RecordSubTab } from '../types';
-import { AT_BAT_RESULTS } from '../types';
+import { AT_BAT_RESULTS, getDefaultOutsForResult } from '../types';
 import {
+  applyGameAfterAtBatChange,
   getAtBatsForHalf,
   getHalfInningStats,
   getInningLabel,
   getLastOutPlayerId,
+  hasActiveLineup,
+  isHalfComplete,
   isOurBattingHalf,
 } from '../utils/gameLogic';
 import { getResultLabel } from '../utils/stats';
+import { isGameRecordDataEqual } from '../utils/gameEquals';
 import type { LiveSyncState } from '../hooks/useLiveRoomSync';
 import type { SharedSyncState } from '../hooks/useSharedGameSync';
 import { LineupPanel } from './LineupPanel';
@@ -27,6 +31,7 @@ const RESULT_COLORS: Record<string, string> = {
   SO: 'bg-red-100 text-red-800',
   FO: 'bg-gray-100 text-gray-700',
   GO: 'bg-gray-100 text-gray-700',
+  DP: 'bg-indigo-100 text-indigo-900',
   SF: 'bg-orange-100 text-orange-800',
   FC: 'bg-purple-100 text-purple-800',
   E: 'bg-pink-100 text-pink-800',
@@ -45,6 +50,7 @@ function ScorePicker({
   onConfirm,
   onCancel,
   onQuick,
+  quickLabel,
   title,
 }: {
   rbi: number;
@@ -54,6 +60,7 @@ function ScorePicker({
   onConfirm: () => void;
   onCancel: () => void;
   onQuick?: () => void;
+  quickLabel?: string;
   title: string;
 }) {
   return (
@@ -65,7 +72,7 @@ function ScorePicker({
           onClick={onQuick}
           className="w-full mb-3 py-3 rounded-xl bg-white border-2 border-field-green text-field-green text-sm font-bold"
         >
-          快速：0分0出局
+          {quickLabel ?? '快速：0分0出局'}
         </button>
       )}
       <p className="text-xs text-gray-500 text-center mb-2">打點</p>
@@ -228,6 +235,7 @@ function RecordSheetOverlay({
               onRbi={onPendingRbi}
               onOuts={onPendingOuts}
               onQuick={onQuickAdd}
+              quickLabel={`快速：0分${getDefaultOutsForResult(pendingResult)}出局`}
               onConfirm={onConfirmAdd}
               onCancel={onCancelRbi}
             />
@@ -298,6 +306,11 @@ export function RecordPanel({
     }
   }, [activeGame?.id, activeLineup.length, selectedPlayer]);
 
+  useEffect(() => {
+    if (!activeGame || recorderMode) return;
+    setSubTab(hasActiveLineup(activeGame) ? 'record' : 'lineup');
+  }, [activeGame?.id, recorderMode]);
+
   const currentHalfAtBats = activeGame
     ? getAtBatsForHalf(activeGame, activeGame.currentInning, activeGame.currentHalf)
     : [];
@@ -310,7 +323,20 @@ export function RecordPanel({
     ? getLastOutPlayerId(currentHalfAtBats)
     : null;
 
-  const canRecord = activeGame && isOurBattingHalf(activeGame, activeGame.currentInning, activeGame.currentHalf);
+  const isReadOnly = !!activeGame?.isCompleted;
+
+  const guardedUpdate = (game: Game) => {
+    if (isReadOnly && activeGame && game.id === activeGame.id) {
+      if (!isGameRecordDataEqual(activeGame, game)) return;
+    }
+    onUpdateGame(game);
+  };
+
+  const canRecord =
+    activeGame &&
+    !isReadOnly &&
+    isOurBattingHalf(activeGame, activeGame.currentInning, activeGame.currentHalf) &&
+    (currentStats?.outs ?? 0) < 3;
 
   const closeRecordSheet = () => {
     setRecordSheet(null);
@@ -319,6 +345,12 @@ export function RecordPanel({
     setPendingRbi(0);
     setPendingOuts(0);
   };
+
+  useEffect(() => {
+    if (isReadOnly) {
+      closeRecordSheet();
+    }
+  }, [isReadOnly]);
 
   const openRecordForPlayer = (playerId: string) => {
     if (!canRecord) return;
@@ -331,6 +363,7 @@ export function RecordPanel({
   };
 
   const openEditForAtBat = (atBat: AtBat) => {
+    if (isReadOnly) return;
     setRecordSheet({ type: 'edit', atBat });
     setEditRbi(atBat.rbi);
     setEditOuts(atBat.outs);
@@ -340,33 +373,36 @@ export function RecordPanel({
 
   const handleSelectHalf = (inning: number, half: HalfInning) => {
     if (!activeGame) return;
-    onUpdateGame({ ...activeGame, currentInning: inning, currentHalf: half });
+    if (!isReadOnly && isHalfComplete(activeGame, inning, half)) return;
+    guardedUpdate({ ...activeGame, currentInning: inning, currentHalf: half });
   };
 
   const handleResultClick = (result: AtBatResult) => {
     if (!activeGame || !selectedPlayer || !canRecord || recordSheet?.type !== 'new') return;
     setPendingResult(result);
     setPendingRbi(0);
-    setPendingOuts(0);
+    setPendingOuts(getDefaultOutsForResult(result));
     setShowRbiPicker(true);
   };
 
   const addAtBat = (result: AtBatResult, rbiCount: number, outsCount: number) => {
     if (!activeGame || !selectedPlayer) return;
     const now = new Date().toISOString();
+    const inning = activeGame.currentInning;
+    const half = activeGame.currentHalf;
     const atBat: AtBat = {
       id: uuid(),
       playerId: selectedPlayer,
       result,
       rbi: rbiCount,
       outs: outsCount,
-      inning: activeGame.currentInning,
-      half: activeGame.currentHalf,
+      inning,
+      half,
       updatedAt: now,
     };
     const newAtBats = [...activeGame.atBats, atBat];
-    onUpdateGame({ ...activeGame, atBats: newAtBats, syncUpdatedAt: now });
-
+    const updatedGame = applyGameAfterAtBatChange(activeGame, newAtBats, inning, half, now);
+    guardedUpdate(updatedGame);
     const lineup = activeGame.lineup.filter((l) => l.isActive).sort((a, b) => a.battingOrder - b.battingOrder);
     const idx = lineup.findIndex((l) => l.playerId === selectedPlayer);
     const nextPlayerId = idx >= 0 && lineup.length > 0 ? lineup[(idx + 1) % lineup.length].playerId : selectedPlayer;
@@ -375,29 +411,33 @@ export function RecordPanel({
   };
 
   const undoLast = () => {
-    if (!activeGame || activeGame.atBats.length === 0) return;
+    if (!activeGame || activeGame.atBats.length === 0 || isReadOnly) return;
     const now = new Date().toISOString();
-    onUpdateGame({ ...activeGame, atBats: activeGame.atBats.slice(0, -1), syncUpdatedAt: now });
+    guardedUpdate({ ...activeGame, atBats: activeGame.atBats.slice(0, -1), syncUpdatedAt: now });
   };
 
   const saveEditAtBat = () => {
     if (!activeGame || recordSheet?.type !== 'edit') return;
     const { atBat } = recordSheet;
     const now = new Date().toISOString();
-    onUpdateGame({
-      ...activeGame,
-      atBats: activeGame.atBats.map((a) =>
-        a.id === atBat.id ? { ...a, rbi: editRbi, outs: editOuts, updatedAt: now } : a
-      ),
-      syncUpdatedAt: now,
-    });
+    const newAtBats = activeGame.atBats.map((a) =>
+      a.id === atBat.id ? { ...a, rbi: editRbi, outs: editOuts, updatedAt: now } : a
+    );
+    const updatedGame = applyGameAfterAtBatChange(
+      activeGame,
+      newAtBats,
+      atBat.inning,
+      atBat.half,
+      now
+    );
+    guardedUpdate(updatedGame);
     closeRecordSheet();
   };
 
   const deleteAtBat = (atBatId: string) => {
-    if (!activeGame) return;
+    if (!activeGame || isReadOnly) return;
     const now = new Date().toISOString();
-    onUpdateGame({
+    guardedUpdate({
       ...activeGame,
       atBats: activeGame.atBats.filter((a) => a.id !== atBatId),
       syncUpdatedAt: now,
@@ -459,11 +499,17 @@ export function RecordPanel({
         </div>
       )}
 
+      {isReadOnly && (
+        <div className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 text-center">
+          比賽已完成 · 僅供查閱
+        </div>
+      )}
+
       <Scoreboard
         game={activeGame}
-        onUpdate={onUpdateGame}
+        onUpdate={guardedUpdate}
         onSelectHalf={handleSelectHalf}
-        readOnlyOpponent={recorderMode}
+        readOnly={isReadOnly}
       />
 
       {showSync && (
@@ -506,7 +552,7 @@ export function RecordPanel({
       </div>
 
       {!recorderMode && subTab === 'lineup' && (
-        <LineupPanel game={activeGame} players={players} onUpdate={onUpdateGame} />
+        <LineupPanel game={activeGame} players={players} onUpdate={guardedUpdate} readOnly={isReadOnly} />
       )}
 
       {subTab === 'positions' && (
@@ -524,11 +570,11 @@ export function RecordPanel({
                 得分 {currentStats.runs} · {currentStats.outs} 出局
               </span>
             )}
-            {!canRecord && !recorderMode && (
+            {!canRecord && !isReadOnly && (
               <span className="ml-2 text-orange-600">對方進攻 — 請點比分表輸入得分</span>
             )}
-            {!canRecord && recorderMode && (
-              <span className="ml-2 text-orange-600">對方進攻</span>
+            {isReadOnly && (
+              <span className="ml-2 text-gray-500">僅供查閱</span>
             )}
           </div>
 
@@ -587,7 +633,9 @@ export function RecordPanel({
 
               {/* 紀錄列表 */}
               <div className="space-y-1.5">
-                <p className="text-xs text-gray-400 px-1">點擊紀錄可編輯打點/出局數</p>
+                {!isReadOnly && (
+                  <p className="text-xs text-gray-400 px-1">點擊紀錄可編輯打點/出局數</p>
+                )}
                 {[...activeGame.atBats].reverse().map((atBat) => {
                   const player = players.find((p) => p.id === atBat.playerId);
                   const isEditing = recordSheet?.type === 'edit' && recordSheet.atBat.id === atBat.id;
@@ -601,7 +649,10 @@ export function RecordPanel({
                       <button
                         type="button"
                         onClick={() => openEditForAtBat(atBat)}
-                        className="flex-1 text-left min-h-[44px] flex flex-col justify-center active:opacity-70"
+                        disabled={isReadOnly}
+                        className={`flex-1 text-left min-h-[44px] flex flex-col justify-center ${
+                          isReadOnly ? 'cursor-default' : 'active:opacity-70'
+                        }`}
                       >
                         <span className="text-gray-400 text-xs">
                           {getInningLabel(atBat.inning, atBat.half)}
@@ -611,18 +662,21 @@ export function RecordPanel({
                           {atBat.rbi > 0 ? ` +${atBat.rbi}分` : ''} / 出局{atBat.outs}
                         </span>
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => deleteAtBat(atBat.id)}
-                        className="text-red-500 font-medium px-3 py-2 rounded-lg bg-red-50 min-h-[44px] shrink-0"
-                      >
-                        刪
-                      </button>
+                      {!isReadOnly && (
+                        <button
+                          type="button"
+                          onClick={() => deleteAtBat(atBat.id)}
+                          className="text-red-500 font-medium px-3 py-2 rounded-lg bg-red-50 min-h-[44px] shrink-0"
+                        >
+                          刪
+                        </button>
+                      )}
                     </div>
                   );
                 })}
               </div>
 
+              {!isReadOnly && (
               <RecordSheetOverlay
                 recordSheet={recordSheet}
                 activeLineup={activeLineup}
@@ -638,7 +692,10 @@ export function RecordPanel({
                 onResultClick={handleResultClick}
                 onPendingRbi={setPendingRbi}
                 onPendingOuts={setPendingOuts}
-                onQuickAdd={() => pendingResult && addAtBat(pendingResult, 0, 0)}
+                onQuickAdd={() =>
+                  pendingResult &&
+                  addAtBat(pendingResult, 0, getDefaultOutsForResult(pendingResult))
+                }
                 onConfirmAdd={() => pendingResult && addAtBat(pendingResult, pendingRbi, pendingOuts)}
                 onCancelRbi={() => {
                   setShowRbiPicker(false);
@@ -648,6 +705,7 @@ export function RecordPanel({
                 onEditOuts={setEditOuts}
                 onSaveEdit={saveEditAtBat}
               />
+              )}
             </div>
           )}
 

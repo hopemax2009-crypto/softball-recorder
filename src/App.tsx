@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 import type { Game, Player, TabId } from './types';
-import { isSameGameView } from './utils/gameEquals';
+import { isGameRecordDataEqual, isSameGameView } from './utils/gameEquals';
 import { getRecorderParams } from './utils/liveRoom';
 import { loadHostRoom, type HostRoomInfo } from './utils/hostRoomStorage';
 import { useAppData } from './hooks/useAppData';
@@ -75,7 +75,7 @@ function HostApp() {
     activeGame,
     data?.players ?? [],
     handleGameSynced,
-    !!activeGame?.liveRoomId && !!hostRoom,
+    !!activeGame?.liveRoomId && !!hostRoom && !activeGame?.isCompleted,
     getLocalGame
   );
 
@@ -85,12 +85,27 @@ function HostApp() {
     if (game) setTab('record');
   };
 
+  const handleUpsertGame = useCallback(
+    (game: Game) => {
+      upsertGame(game);
+      if (activeGameRef.current?.id === game.id) {
+        activeGameRef.current = game;
+        setActiveGame(game);
+      }
+    },
+    [upsertGame]
+  );
+
   const handleUpdateGame = useCallback(
     (game: Game) => {
+      const prev = activeGameRef.current;
+      if (game.isCompleted && prev?.isCompleted && prev.id === game.id) {
+        if (!isGameRecordDataEqual(prev, game)) return;
+      }
       activeGameRef.current = game;
       setActiveGame(game);
       updateGame(game);
-      if (game.liveRoomId) {
+      if (game.liveRoomId && !game.isCompleted) {
         schedulePush(game);
       }
     },
@@ -159,7 +174,7 @@ function HostApp() {
             onAddGame={addGame}
             onSelectGame={handleSelectGame}
             onDeleteGame={deleteGame}
-            onUpsertGame={upsertGame}
+            onUpsertGame={handleUpsertGame}
           />
         )}
         {tab === 'stats' && (

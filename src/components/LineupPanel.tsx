@@ -6,14 +6,16 @@ interface Props {
   game: Game;
   players: Player[];
   onUpdate: (game: Game) => void;
+  readOnly?: boolean;
 }
 
-export function LineupPanel({ game, players, onUpdate }: Props) {
+export function LineupPanel({ game, players, onUpdate, readOnly = false }: Props) {
   const activeLineup = game.lineup
     .filter((l) => l.isActive)
     .sort((a, b) => a.battingOrder - b.battingOrder);
 
   const togglePlayer = (playerId: string) => {
+    if (readOnly) return;
     const existing = game.lineup.find((l) => l.playerId === playerId);
     if (existing) {
       onUpdate(touchLineup(game, game.lineup.map((l) =>
@@ -34,6 +36,7 @@ export function LineupPanel({ game, players, onUpdate }: Props) {
   };
 
   const updateEntry = (playerId: string, patch: Partial<LineupEntry>) => {
+    if (readOnly) return;
     onUpdate(touchLineup(game, game.lineup.map((l) =>
         l.playerId === playerId ? { ...l, ...patch } : l
       )));
@@ -41,7 +44,11 @@ export function LineupPanel({ game, players, onUpdate }: Props) {
 
   return (
     <div className="space-y-3">
-      <p className="text-sm text-gray-500 px-1">點選球員加入先發，設定棒次與守位</p>
+      {readOnly ? (
+        <p className="text-sm text-amber-700 bg-amber-50 rounded-xl px-3 py-2">比賽已完成，先發設定僅供查閱</p>
+      ) : (
+        <p className="text-sm text-gray-500 px-1">點選球員加入先發，設定棒次與守位</p>
+      )}
       <div className="space-y-2">
         {players.map((player) => {
           const entry = game.lineup.find((l) => l.playerId === player.id);
@@ -50,7 +57,8 @@ export function LineupPanel({ game, players, onUpdate }: Props) {
             <Card key={player.id} className={`!p-3 ${isActive ? 'border-field-green border-2' : ''}`}>
               <button
                 onClick={() => togglePlayer(player.id)}
-                className="w-full text-left flex items-center justify-between mb-2"
+                disabled={readOnly}
+                className={`w-full text-left flex items-center justify-between mb-2 ${readOnly ? 'cursor-default' : ''}`}
               >
                 <span className="font-semibold">
                   {player.number && <span className="text-field-green mr-1">#{player.number}</span>}
@@ -67,6 +75,7 @@ export function LineupPanel({ game, players, onUpdate }: Props) {
                     <select
                       className="input !py-2 text-sm"
                       value={entry.battingOrder}
+                      disabled={readOnly}
                       onChange={(e) =>
                         updateEntry(player.id, { battingOrder: Number(e.target.value) })
                       }
@@ -81,6 +90,7 @@ export function LineupPanel({ game, players, onUpdate }: Props) {
                     <select
                       className="input !py-2 text-sm"
                       value={entry.position}
+                      disabled={readOnly}
                       onChange={(e) =>
                         updateEntry(player.id, { position: e.target.value as Position })
                       }

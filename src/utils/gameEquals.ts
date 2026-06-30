@@ -26,3 +26,29 @@ export function isSameGameView(local: Game | null, incoming: Game): boolean {
 
   return true;
 }
+
+/** 比賽紀錄資料（打席、先發、對方得分）是否相同；用於已完成比賽僅允許換局瀏覽 */
+export function isGameRecordDataEqual(a: Game, b: Game): boolean {
+  if (a.atBats.length !== b.atBats.length) return false;
+  if (a.lineup.length !== b.lineup.length) return false;
+  const aScores = a.opponentScores ?? [];
+  const bScores = b.opponentScores ?? [];
+  if (aScores.length !== bScores.length) return false;
+  for (let i = 0; i < aScores.length; i++) {
+    if (aScores[i].inning !== bScores[i].inning || aScores[i].half !== bScores[i].half) return false;
+    if (aScores[i].runs !== bScores[i].runs) return false;
+  }
+  for (let i = 0; i < a.atBats.length; i++) {
+    const x = a.atBats[i];
+    const y = b.atBats[i];
+    if (x.id !== y.id || x.rbi !== y.rbi || x.outs !== y.outs || x.result !== y.result) return false;
+  }
+  for (const x of a.lineup) {
+    const y = b.lineup.find((l) => l.playerId === x.playerId);
+    if (!y) return false;
+    if (x.battingOrder !== y.battingOrder || x.position !== y.position || x.isActive !== y.isActive) {
+      return false;
+    }
+  }
+  return true;
+}

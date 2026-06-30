@@ -117,6 +117,41 @@ export function getInningLabel(inning: number, half: HalfInning): string {
   return half === 'top' ? `${inning}局上` : `${inning}局下`;
 }
 
+export function hasActiveLineup(game: Game): boolean {
+  return (game.lineup ?? []).some((l) => l.isActive);
+}
+
+export function isHalfComplete(game: Game, inning: number, half: HalfInning): boolean {
+  if (!isOurBattingHalf(game, inning, half)) return false;
+  return countOuts(getAtBatsForHalf(game, inning, half)) >= 3;
+}
+
+/** 打席更新後：若該半局已 3 出局且為目前局，自動跳至下一局 */
+export function applyGameAfterAtBatChange(
+  game: Game,
+  atBats: AtBat[],
+  inning: number,
+  half: HalfInning,
+  now: string
+): Game {
+  let updated: Game = { ...game, atBats, syncUpdatedAt: now };
+  if (
+    isOurBattingHalf(game, inning, half) &&
+    countOuts(atBats.filter((a) => a.inning === inning && a.half === half)) >= 3 &&
+    updated.currentInning === inning &&
+    updated.currentHalf === half
+  ) {
+    const next = getNextHalf(inning, half);
+    updated = {
+      ...updated,
+      currentInning: next.inning,
+      currentHalf: next.half,
+      syncUpdatedAt: now,
+    };
+  }
+  return updated;
+}
+
 export function getNextHalf(inning: number, half: HalfInning): { inning: number; half: HalfInning } {
   if (half === 'top') return { inning, half: 'bottom' };
   return { inning: inning + 1, half: 'top' };

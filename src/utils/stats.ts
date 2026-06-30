@@ -53,6 +53,7 @@ export function calculatePlayerStats(
   let sf = 0;
   let fo = 0;
   let go = 0;
+  let dp = 0;
   let totalBases = 0;
 
   for (const game of filteredGames) {
@@ -97,6 +98,9 @@ export function calculatePlayerStats(
         case 'GO':
           go++;
           break;
+        case 'DP':
+          dp++;
+          break;
       }
       rbi += atBat.rbi;
     }
@@ -124,6 +128,7 @@ export function calculatePlayerStats(
     sf,
     fo,
     go,
+    dp,
     avg: formatRate(avg),
     obp: formatRate(obp),
     slg: formatRate(slg),
@@ -159,6 +164,7 @@ export function getResultLabel(result: AtBatResult): string {
     { value: 'SO', label: '三振' },
     { value: 'FO', label: '飛球出局' },
     { value: 'GO', label: '滾地球出局' },
+    { value: 'DP', label: '雙殺' },
     { value: 'SF', label: '高飛犧牲打' },
     { value: 'FC', label: '野選' },
     { value: 'E', label: '失誤上壘' },

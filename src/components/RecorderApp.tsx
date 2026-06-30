@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Game, Player } from '../types';
 import { isFirebaseConfigured } from '../config/firebase';
 import { joinLiveRoom } from '../services/liveRoomSync';
-import { isSameGameView } from '../utils/gameEquals';
+import { isGameRecordDataEqual, isSameGameView } from '../utils/gameEquals';
 import { getRecorderParams } from '../utils/liveRoom';
 import { useLiveRoomSync } from '../hooks/useLiveRoomSync';
 import { RecordPanel } from './RecordPanel';
@@ -77,9 +77,15 @@ export function RecorderApp() {
 
   const handleUpdateGame = useCallback(
     (updated: Game) => {
+      const prev = gameRef.current;
+      if (updated.isCompleted && prev?.isCompleted && prev.id === updated.id) {
+        if (!isGameRecordDataEqual(prev, updated)) return;
+      }
       gameRef.current = updated;
       setGame(updated);
-      schedulePush(updated);
+      if (!updated.isCompleted) {
+        schedulePush(updated);
+      }
     },
     [schedulePush]
   );

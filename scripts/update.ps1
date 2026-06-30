@@ -47,7 +47,7 @@ if ([string]::IsNullOrWhiteSpace($msg)) {
 Write-Host ''
 Write-Host '正在提交...' -ForegroundColor Cyan
 git add .
-git commit --trailer "Co-authored-by: Cursor <cursoragent@cursor.com>" -m $msg
+git commit -m $msg
 
 if ($LASTEXITCODE -ne 0) {
     Write-Host '提交失敗' -ForegroundColor Red

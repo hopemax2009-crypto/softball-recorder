@@ -1,4 +1,4 @@
-﻿# UTF-8 with BOM
+# UTF-8 with BOM
 $ErrorActionPreference = 'Stop'
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 

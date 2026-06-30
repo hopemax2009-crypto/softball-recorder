@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import type { Game, Season } from '../types';
 import { isFirebaseConfigured } from '../config/firebase';
-import { createLiveRoom, fetchLiveRoom, generatePin } from '../services/liveRoomSync';
-import { saveHostRoom, loadHostRoom } from '../utils/hostRoomStorage';
+import { createLiveRoom, closeLiveRoom, fetchLiveRoom, generatePin } from '../services/liveRoomSync';
+import { saveHostRoom, loadHostRoom, clearHostRoom } from '../utils/hostRoomStorage';
+import { hasActiveLineup } from '../utils/gameLogic';
 import { QRShareModal } from './QRShareModal';
 import { Button, Card, EmptyState, Input, Select } from './ui';
 
@@ -99,12 +100,16 @@ export function GamesPanel({
   };
 
   const handleStartLive = async (game: Game) => {
+    if (game.isCompleted) {
+      setStatus('此比賽已標記完成，無法再開啟 QR 共用');
+      return;
+    }
     if (!isFirebaseConfigured()) {
       setStatus('雲端尚未設定，請管理者在 .env 設定 Firebase（一次性）');
       return;
     }
-    if (game.lineup.filter((l) => l.isActive).length === 0) {
-      setStatus('請先到紀錄頁「先發」設定上場球員，再開啟即時共用');
+    if (!hasActiveLineup(game)) {
+      setStatus('請先到紀錄頁「先發」設定上場球員');
       onSelectGame(game);
       return;
     }
@@ -155,10 +160,86 @@ export function GamesPanel({
   };
 
   const handleQrAction = (game: Game) => {
+    if (game.isCompleted && !game.liveRoomId) {
+      setStatus('此比賽已結束');
+      return;
+    }
     if (game.liveRoomId) {
       void handleShowQr(game);
     } else {
       void handleStartLive(game);
+    }
+  };
+
+  const handleCloseLiveRoom = async (game: Game) => {
+    if (!game.liveRoomId) return;
+    if (!confirm('關閉 QR 共用後，紀錄員將無法再加入此場次。確定關閉？')) return;
+    setBusy(true);
+    setStatus('');
+    try {
+      if (isFirebaseConfigured()) {
+        await closeLiveRoom(game.liveRoomId);
+      }
+      clearHostRoom(game.id);
+      const now = new Date().toISOString();
+      onUpsertGame({
+        ...game,
+        liveRoomId: undefined,
+        liveRoomPin: undefined,
+        isShared: false,
+        syncUpdatedAt: now,
+      });
+      setStatus('已關閉 QR 共用');
+    } catch (e) {
+      setStatus(e instanceof Error ? e.message : '關閉失敗');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleMarkComplete = async (game: Game) => {
+    if (game.isCompleted) {
+      if (!confirm('取消此比賽的「已完成」標記？')) return;
+      onUpsertGame({ ...game, isCompleted: false, syncUpdatedAt: new Date().toISOString() });
+      setStatus('已取消完成標記');
+      return;
+    }
+    if (!confirm(`確定將 vs ${game.opponent} 標記為已完成？`)) return;
+
+    let updated: Game = { ...game, isCompleted: true, syncUpdatedAt: new Date().toISOString() };
+
+    if (game.liveRoomId && confirm('是否同時關閉 QR 共用？')) {
+      setBusy(true);
+      try {
+        if (isFirebaseConfigured()) {
+          await closeLiveRoom(game.liveRoomId);
+        }
+        clearHostRoom(game.id);
+        updated = {
+          ...updated,
+          liveRoomId: undefined,
+          liveRoomPin: undefined,
+          isShared: false,
+        };
+        setStatus('已標記完成並關閉 QR 共用');
+      } catch (e) {
+        setStatus(e instanceof Error ? e.message : '關閉 QR 失敗');
+        return;
+      } finally {
+        setBusy(false);
+      }
+    } else {
+      setStatus('已標記比賽完成');
+    }
+    onUpsertGame(updated);
+  };
+
+  const handleSelectGameClick = (game: Game) => {
+    onSelectGame(game);
+    if (!hasActiveLineup(game)) {
+      setStatus('請先設定先發名單與棒次');
+    } else {
+      setStatus('');
     }
   };
 
@@ -256,32 +337,59 @@ export function GamesPanel({
           {filteredGames.map((game) => {
             const season = seasons.find((s) => s.id === game.seasonId);
             const hasLive = !!game.liveRoomId;
+            const completed = !!game.isCompleted;
             return (
               <Card key={game.id}>
                 <div className="flex items-start gap-3">
-                  <button type="button" onClick={() => onSelectGame(game)} className="flex-1 text-left min-h-[48px]">
+                  <button type="button" onClick={() => handleSelectGameClick(game)} className="flex-1 text-left min-h-[48px]">
                     <div className="font-semibold flex items-center gap-2 flex-wrap">
                       {game.opponent}
+                      {completed && (
+                        <span className="text-[10px] bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full">已完成</span>
+                      )}
                       {hasLive && (
                         <span className="text-[10px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">即時共用中</span>
+                      )}
+                      {!hasActiveLineup(game) && !completed && (
+                        <span className="text-[10px] bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">未排先發</span>
                       )}
                     </div>
                     <div className="text-sm text-gray-500">{game.date} · {season?.name} · {game.atBats.length} 打席</div>
                   </button>
+                  {!completed && (
+                    <button
+                      type="button"
+                      onClick={() => handleQrAction(game)}
+                      disabled={busy}
+                      className={`shrink-0 text-sm font-medium px-3 py-3 rounded-xl min-w-[96px] min-h-[48px] ${
+                        hasLive
+                          ? 'border-2 border-field-green text-field-green bg-white'
+                          : 'bg-field-green text-white'
+                      } ${busy ? 'opacity-60' : ''}`}
+                    >
+                      {busy ? '載入中…' : hasLive ? '顯示 QR' : '開啟 QR 共用'}
+                    </button>
+                  )}
+                </div>
+                <div className="mt-3 pt-2 border-t border-gray-100 flex flex-wrap gap-x-4 gap-y-1">
+                  {hasLive && (
+                    <button
+                      type="button"
+                      onClick={() => void handleCloseLiveRoom(game)}
+                      disabled={busy}
+                      className="text-xs text-orange-600 py-1 px-1 font-medium"
+                    >
+                      關閉 QR 共用
+                    </button>
+                  )}
                   <button
                     type="button"
-                    onClick={() => handleQrAction(game)}
+                    onClick={() => void handleMarkComplete(game)}
                     disabled={busy}
-                    className={`shrink-0 text-sm font-medium px-3 py-3 rounded-xl min-w-[96px] min-h-[48px] ${
-                      hasLive
-                        ? 'border-2 border-field-green text-field-green bg-white'
-                        : 'bg-field-green text-white'
-                    } ${busy ? 'opacity-60' : ''}`}
+                    className="text-xs text-gray-600 py-1 px-1"
                   >
-                    {busy ? '載入中…' : hasLive ? '顯示 QR' : '開啟 QR 共用'}
+                    {completed ? '取消完成標記' : '標記比賽完成'}
                   </button>
-                </div>
-                <div className="mt-3 pt-2 border-t border-gray-100">
                   <button
                     type="button"
                     onClick={() => {
