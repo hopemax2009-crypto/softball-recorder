@@ -45,7 +45,7 @@ interface Props {
 
 export function RecordPanel({
   games,
-  players,
+  players: playersProp,
   activeGame,
   recorderMode = false,
   syncState,
@@ -53,6 +53,7 @@ export function RecordPanel({
   onSelectGame,
   onUpdateGame,
 }: Props) {
+  const players = playersProp ?? [];
   const [subTab, setSubTab] = useState<RecordSubTab>('record');
   const [selectedPlayer, setSelectedPlayer] = useState('');
   const [showRbiPicker, setShowRbiPicker] = useState(false);
@@ -66,7 +67,7 @@ export function RecordPanel({
   const recentGames = [...games].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 10);
 
   const activeLineup = activeGame
-    ? activeGame.lineup.filter((l) => l.isActive).sort((a, b) => a.battingOrder - b.battingOrder)
+    ? (activeGame.lineup ?? []).filter((l) => l.isActive).sort((a, b) => a.battingOrder - b.battingOrder)
     : [];
 
   useEffect(() => {
@@ -253,7 +254,7 @@ export function RecordPanel({
     );
   }
 
-  if (players.length === 0) {
+  if (players.length === 0 && activeLineup.length === 0) {
     return (
       <div className="p-4">
         <EmptyState

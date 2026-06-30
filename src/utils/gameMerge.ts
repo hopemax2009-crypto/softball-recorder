@@ -1,5 +1,9 @@
 import type { AtBat, Game, OpponentScore } from '../types';
 
+function safeArray<T>(value: T[] | undefined | null): T[] {
+  return value ?? [];
+}
+
 function scoreKey(s: OpponentScore): string {
   return `${s.inning}-${s.half}`;
 }
@@ -9,10 +13,10 @@ function mergeOpponentScores(local: Game, remote: Game): OpponentScore[] {
   const remoteTime = new Date(remote.syncUpdatedAt ?? remote.createdAt).getTime();
   const map = new Map<string, OpponentScore>();
 
-  for (const s of local.opponentScores) {
+  for (const s of safeArray(local.opponentScores)) {
     map.set(scoreKey(s), s);
   }
-  for (const s of remote.opponentScores) {
+  for (const s of safeArray(remote.opponentScores)) {
     const key = scoreKey(s);
     if (!map.has(key) || remoteTime >= localTime) {
       map.set(key, s);
@@ -26,8 +30,10 @@ function mergeOpponentScores(local: Game, remote: Game): OpponentScore[] {
 function mergeLineup(local: Game, remote: Game): Game['lineup'] {
   const localTime = new Date(local.syncUpdatedAt ?? local.createdAt).getTime();
   const remoteTime = new Date(remote.syncUpdatedAt ?? remote.createdAt).getTime();
-  const base = remoteTime >= localTime ? remote.lineup : local.lineup;
-  const other = remoteTime >= localTime ? local.lineup : remote.lineup;
+  const localLineup = safeArray(local.lineup);
+  const remoteLineup = safeArray(remote.lineup);
+  const base = remoteTime >= localTime ? remoteLineup : localLineup;
+  const other = remoteTime >= localTime ? localLineup : remoteLineup;
   const map = new Map(base.map((e) => [e.playerId, e]));
   for (const e of other) {
     if (!map.has(e.playerId)) map.set(e.playerId, e);
@@ -60,7 +66,7 @@ export function mergeGames(local: Game, remote: Game): Game {
   const base = remoteTime >= localTime ? remote : local;
 
   const atBatMap = new Map<string, AtBat>();
-  for (const a of [...local.atBats, ...remote.atBats]) {
+  for (const a of [...safeArray(local.atBats), ...safeArray(remote.atBats)]) {
     const existing = atBatMap.get(a.id);
     const aTime = new Date(a.updatedAt ?? 0).getTime();
     const eTime = existing ? new Date(existing.updatedAt ?? 0).getTime() : -1;

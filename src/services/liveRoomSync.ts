@@ -1,8 +1,18 @@
 import { get, onValue, ref, runTransaction, set } from 'firebase/database';
 import type { Game, Player } from '../types';
 import { mergeGames } from '../utils/gameMerge';
+import { normalizeGame } from '../utils/gameLogic';
 import { getFirebaseDb } from '../config/firebase';
 import type { LiveRoom } from '../utils/liveRoom';
+
+function normalizeRoom(raw: LiveRoom): LiveRoom {
+  return {
+    ...raw,
+    pin: String(raw.pin),
+    game: normalizeGame(raw.game),
+    players: raw.players ?? [],
+  };
+}
 
 function roomRef(roomId: string) {
   return ref(getFirebaseDb(), `rooms/${roomId}`);
@@ -32,7 +42,7 @@ export async function createLiveRoom(
     pin,
     hostName,
     opponent: game.opponent,
-    game: { ...game, liveRoomId: id, isShared: true, syncUpdatedAt: new Date().toISOString() },
+    game: normalizeGame({ ...game, liveRoomId: id, isShared: true, syncUpdatedAt: new Date().toISOString() }),
     players,
     updatedAt: new Date().toISOString(),
   };
@@ -44,7 +54,7 @@ export async function updateLiveRoomGame(roomId: string, game: Game, players?: P
   await runTransaction(roomRef(roomId), (current) => {
     if (!current) return current;
     const room = current as LiveRoom;
-    const merged = mergeGames(room.game, { ...game, syncUpdatedAt: new Date().toISOString() });
+    const merged = mergeGames(normalizeGame(room.game), normalizeGame({ ...game, syncUpdatedAt: new Date().toISOString() }));
     return {
       ...room,
       game: merged,
@@ -64,12 +74,13 @@ export function subscribeLiveRoom(
   return onValue(
     roomRef(roomId),
     (snap) => {
-      const room = snap.val() as LiveRoom | null;
-      if (!room) {
+      const raw = snap.val() as LiveRoom | null;
+      if (!raw) {
         onError('找不到此場次，可能已結束');
         return;
       }
-      if (room.pin !== pin) {
+      const room = normalizeRoom(raw);
+      if (String(room.pin) !== String(pin)) {
         onError('PIN 碼錯誤');
         return;
       }
@@ -83,8 +94,9 @@ export async function joinLiveRoom(roomId: string, pin: string): Promise<LiveRoo
   const snap = await get(roomRef(roomId));
   const room = snap.val() as LiveRoom | null;
   if (!room) throw new Error('找不到此場次');
-  if (room.pin !== pin) throw new Error('PIN 碼錯誤');
-  return room;
+  const normalized = normalizeRoom(room);
+  if (String(normalized.pin) !== String(pin)) throw new Error('PIN 碼錯誤');
+  return normalized;
 }
 
 export async function closeLiveRoom(roomId: string): Promise<void> {

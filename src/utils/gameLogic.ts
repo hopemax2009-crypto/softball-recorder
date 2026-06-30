@@ -131,3 +131,19 @@ export function createDefaultGameFields(isHomeTeam = true): Pick<
     currentHalf: isHomeTeam ? 'top' : 'bottom',
   };
 }
+
+/** 確保從 Firebase 讀回的比賽資料具備必要欄位，避免渲染時崩潰 */
+export function normalizeGame(game: Game): Game {
+  const defaults = createDefaultGameFields(game.isHomeTeam ?? true);
+  return {
+    ...defaults,
+    ...game,
+    lineup: game.lineup ?? defaults.lineup,
+    atBats: game.atBats ?? [],
+    opponentScores: game.opponentScores ?? defaults.opponentScores,
+    currentInning: game.currentInning ?? defaults.currentInning,
+    currentHalf: game.currentHalf ?? defaults.currentHalf,
+    totalInnings: game.totalInnings ?? defaults.totalInnings,
+    isHomeTeam: game.isHomeTeam ?? defaults.isHomeTeam,
+  };
+}

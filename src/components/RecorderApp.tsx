@@ -7,6 +7,8 @@ import { useLiveRoomSync } from '../hooks/useLiveRoomSync';
 import { RecordPanel } from './RecordPanel';
 import { Button, Card, EmptyState, Input } from './ui';
 
+const JOIN_TIMEOUT_MS = 15000;
+
 export function RecorderApp() {
   const params = getRecorderParams();
   const [roomId, setRoomId] = useState(params?.roomId ?? '');
@@ -17,10 +19,11 @@ export function RecorderApp() {
   const [players, setPlayers] = useState<Player[]>([]);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const autoJoinRef = useRef(false);
 
   const handleGameUpdate = useCallback((g: Game, p: Player[]) => {
     setGame(g);
-    setPlayers(p);
+    setPlayers(p ?? []);
   }, []);
 
   const { syncState, pushNow } = useLiveRoomSync(
@@ -32,11 +35,7 @@ export function RecorderApp() {
     joined
   );
 
-  const handleJoin = async () => {
-    if (!roomId.trim() || !pin.trim()) {
-      setError('請輸入場次代碼與 PIN');
-      return;
-    }
+  const attemptJoin = useCallback(async (id: string, code: string) => {
     if (!isFirebaseConfigured()) {
       setError('雲端同步尚未設定，請聯繫主控端');
       return;
@@ -44,15 +43,28 @@ export function RecorderApp() {
     setLoading(true);
     setError('');
     try {
-      const room = await joinLiveRoom(roomId.trim(), pin.trim());
+      const room = await Promise.race([
+        joinLiveRoom(id.trim(), code.trim()),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('連線逾時，請確認網路或 Firebase 設定')), JOIN_TIMEOUT_MS)
+        ),
+      ]);
       setGame(room.game);
-      setPlayers(room.players);
+      setPlayers(room.players ?? []);
       setJoined(true);
     } catch (e) {
       setError(e instanceof Error ? e.message : '加入失敗');
     } finally {
       setLoading(false);
     }
+  }, []);
+
+  const handleJoin = async () => {
+    if (!roomId.trim() || !pin.trim()) {
+      setError('請輸入場次代碼與 PIN');
+      return;
+    }
+    await attemptJoin(roomId, pin);
   };
 
   const handleUpdateGame = useCallback((updated: Game) => {
@@ -60,39 +72,28 @@ export function RecorderApp() {
   }, []);
 
   useEffect(() => {
-    if (params?.roomId && params?.pin && isFirebaseConfigured()) {
+    if (params?.roomId && params?.pin) {
       setRoomId(params.roomId);
       setPin(params.pin);
     }
   }, [params?.roomId, params?.pin]);
 
-  const autoJoinRef = useRef(false);
-
   useEffect(() => {
     if (!params?.roomId || !params?.pin || joined || autoJoinRef.current) return;
     if (!isFirebaseConfigured()) return;
     autoJoinRef.current = true;
-    void (async () => {
-      setLoading(true);
-      setError('');
-      try {
-        const room = await joinLiveRoom(params.roomId, params.pin);
-        setGame(room.game);
-        setPlayers(room.players);
-        setJoined(true);
-      } catch (e) {
-        setError(e instanceof Error ? e.message : '加入失敗');
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, [params?.roomId, params?.pin, joined]);
+    void attemptJoin(params.roomId, params.pin);
+  }, [params?.roomId, params?.pin, joined, attemptJoin]);
 
   if (!isFirebaseConfigured()) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-4">
+      <div className="min-h-screen flex items-center justify-center p-4 bg-gray-50">
         <Card className="max-w-md text-center">
-          <EmptyState icon="☁️" title="尚未設定雲端" description="請聯繫主控端管理者完成一次性設定" />
+          <EmptyState
+            icon="☁️"
+            title="尚未設定雲端"
+            description="主控端管理者需在 Firebase 完成一次性設定，並重新部署網站"
+          />
         </Card>
       </div>
     );
@@ -106,9 +107,14 @@ export function RecorderApp() {
           <div className="text-center">
             <div className="text-5xl mb-2">📱</div>
             <h1 className="text-xl font-bold text-field-green">紀錄員模式</h1>
-            <p className="text-sm text-gray-500 mt-1">
-              {fromQr && loading ? '正在加入比賽...' : '掃描主控端 QR Code 或輸入代碼加入'}
-            </p>
+            {fromQr && loading ? (
+              <div className="mt-4">
+                <div className="inline-block w-8 h-8 border-4 border-field-green border-t-transparent rounded-full animate-spin" />
+                <p className="text-sm text-gray-600 mt-3">正在加入比賽...</p>
+              </div>
+            ) : (
+              <p className="text-sm text-gray-500 mt-1">掃描主控端 QR Code 或輸入代碼加入</p>
+            )}
           </div>
           {!fromQr && (
             <>
@@ -132,7 +138,16 @@ export function RecorderApp() {
               />
             </>
           )}
-          {error && <p className="text-red-500 text-sm text-center bg-red-50 rounded-xl py-2">{error}</p>}
+          {error && (
+            <div className="text-red-600 text-sm text-center bg-red-50 rounded-xl py-3 px-3 space-y-2">
+              <p>{error}</p>
+              {fromQr && (
+                <Button onClick={() => { autoJoinRef.current = true; void attemptJoin(params!.roomId, params!.pin); }} className="w-full !py-2 text-sm">
+                  重試
+                </Button>
+              )}
+            </div>
+          )}
           {!fromQr && (
             <Button onClick={handleJoin} disabled={loading} className="w-full">
               {loading ? '加入中...' : '加入比賽紀錄'}
@@ -150,7 +165,7 @@ export function RecorderApp() {
           <div>
             <h1 className="text-lg font-bold">📱 紀錄員</h1>
             <p className="text-xs text-green-200">
-              {recorderName || '紀錄模式'} · vs {game?.opponent}
+              {recorderName || '紀錄模式'} · vs {game?.opponent ?? '比賽中'}
             </p>
           </div>
           <div className="text-[10px] text-green-200 text-right">
@@ -160,7 +175,7 @@ export function RecorderApp() {
       </header>
 
       <main className="max-w-lg mx-auto">
-        {game && (
+        {game ? (
           <RecordPanel
             games={[game]}
             players={players}
@@ -171,6 +186,11 @@ export function RecorderApp() {
             onSelectGame={() => {}}
             onUpdateGame={handleUpdateGame}
           />
+        ) : (
+          <div className="p-8 text-center text-gray-500">
+            <div className="inline-block w-8 h-8 border-4 border-field-green border-t-transparent rounded-full animate-spin mb-3" />
+            <p>載入比賽資料...</p>
+          </div>
         )}
       </main>
     </div>
