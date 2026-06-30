@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import type { Game, Player, Season } from '../types';
-import { calculateAllStats, formatAvg } from '../utils/stats';
-import { Card, EmptyState, Select, StatBox } from './ui';
+import { calculateAllStats, formatAvg, formatWobaPlus, getTeamAvgWoba, getWobaPlusTone } from '../utils/stats';
+import { PlayerStatsSheet } from './PlayerStatsSheet';
+import { Card, EmptyState, Select } from './ui';
 
 interface Props {
   players: Player[];
@@ -21,8 +22,9 @@ export function StatsPanel({ players, seasons, games }: Props) {
   );
 
   const playerStats = selectedPlayer
-    ? stats.find((s) => s.playerId === selectedPlayer)
+    ? stats.find((s) => s.playerId === selectedPlayer) ?? null
     : null;
+  const teamAvgWoba = getTeamAvgWoba(stats);
 
   if (players.length === 0) {
     return (
@@ -69,61 +71,45 @@ export function StatsPanel({ players, seasons, games }: Props) {
       {stats.length === 0 ? (
         <EmptyState icon="📊" title="尚無打擊資料" description="紀錄打席後即可查看統計" />
       ) : (
-        <>
-          <div className="space-y-2">
-            <h3 className="text-sm font-medium text-gray-500">球員列表</h3>
-            {stats.map((s) => (
-              <Card key={s.playerId}>
-                <button
-                  onClick={() =>
-                    setSelectedPlayer(selectedPlayer === s.playerId ? null : s.playerId)
-                  }
-                  className="w-full text-left"
-                >
-                  <div className="flex justify-between items-center">
-                    <span className="font-semibold">{s.playerName}</span>
-                    <span className="text-field-green font-bold">{formatAvg(s.avg)}</span>
+        <div className="space-y-2">
+          <h3 className="text-sm font-medium text-gray-500">球員列表（點擊查看詳細）</h3>
+          {stats.map((s) => {
+            const plusTone = getWobaPlusTone(s.wobaPlus);
+            return (
+            <Card key={s.playerId}>
+              <button
+                type="button"
+                onClick={() => setSelectedPlayer(s.playerId)}
+                className="w-full text-left active:opacity-70"
+              >
+                <div className="flex justify-between items-center gap-2">
+                  <span className="font-semibold">{s.playerName}</span>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="text-violet-700 font-bold text-sm">{formatAvg(s.woba)}</span>
+                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${plusTone.bg} ${plusTone.value}`}>
+                      {formatWobaPlus(s.wobaPlus)}
+                    </span>
                   </div>
-                  <div className="text-xs text-gray-500 mt-1 grid grid-cols-4 gap-1">
-                    <span>{s.games}場</span>
-                    <span>{s.ab}打數</span>
-                    <span>{s.h}安打</span>
-                    <span>{s.hr}全壘</span>
-                  </div>
-                </button>
-              </Card>
-            ))}
-          </div>
-
-          {playerStats && (
-            <Card className="space-y-4">
-              <h3 className="font-bold text-lg text-center">{playerStats.playerName}</h3>
-              <div className="grid grid-cols-4 gap-3">
-                <StatBox label="打擊率" value={formatAvg(playerStats.avg)} />
-                <StatBox label="上壘率" value={formatAvg(playerStats.obp)} />
-                <StatBox label="長打率" value={formatAvg(playerStats.slg)} />
-                <StatBox label="OPS" value={formatAvg(playerStats.ops)} />
-              </div>
-              <div className="grid grid-cols-4 gap-2 text-center text-sm">
-                <div><span className="font-bold">{playerStats.games}</span><br /><span className="text-gray-500 text-xs">出賽</span></div>
-                <div><span className="font-bold">{playerStats.ab}</span><br /><span className="text-gray-500 text-xs">打數</span></div>
-                <div><span className="font-bold">{playerStats.h}</span><br /><span className="text-gray-500 text-xs">安打</span></div>
-                <div><span className="font-bold">{playerStats.rbi}</span><br /><span className="text-gray-500 text-xs">打點</span></div>
-                <div><span className="font-bold">{playerStats.singles}</span><br /><span className="text-gray-500 text-xs">一安</span></div>
-                <div><span className="font-bold">{playerStats.doubles}</span><br /><span className="text-gray-500 text-xs">二安</span></div>
-                <div><span className="font-bold">{playerStats.triples}</span><br /><span className="text-gray-500 text-xs">三安</span></div>
-                <div><span className="font-bold">{playerStats.hr}</span><br /><span className="text-gray-500 text-xs">全壘</span></div>
-                <div><span className="font-bold">{playerStats.bb}</span><br /><span className="text-gray-500 text-xs">保送</span></div>
-                <div><span className="font-bold">{playerStats.hbp}</span><br /><span className="text-gray-500 text-xs">觸身</span></div>
-                <div><span className="font-bold">{playerStats.so}</span><br /><span className="text-gray-500 text-xs">三振</span></div>
-                <div><span className="font-bold">{playerStats.fo}</span><br /><span className="text-gray-500 text-xs">飛球出局</span></div>
-                <div><span className="font-bold">{playerStats.go}</span><br /><span className="text-gray-500 text-xs">滾球出局</span></div>
-                <div><span className="font-bold">{playerStats.dp}</span><br /><span className="text-gray-500 text-xs">雙殺</span></div>
-                <div><span className="font-bold">{playerStats.sf}</span><br /><span className="text-gray-500 text-xs">犧飛</span></div>
-              </div>
+                </div>
+                <div className="text-xs text-gray-500 mt-1 grid grid-cols-4 gap-1">
+                  <span>{s.games}場</span>
+                  <span>{s.ab}打數</span>
+                  <span>{s.h}安打</span>
+                  <span>AVG {formatAvg(s.avg)}</span>
+                </div>
+              </button>
             </Card>
-          )}
-        </>
+            );
+          })}
+        </div>
+      )}
+
+      {playerStats && (
+        <PlayerStatsSheet
+          stats={playerStats}
+          teamAvgWoba={teamAvgWoba}
+          onClose={() => setSelectedPlayer(null)}
+        />
       )}
     </div>
   );

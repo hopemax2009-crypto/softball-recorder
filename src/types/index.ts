@@ -193,10 +193,24 @@ export interface BattingStats {
   fo: number;
   go: number;
   dp: number;
+  fc: number;
+  e: number;
   avg: number;
   obp: number;
   slg: number;
   ops: number;
+  /** 總打席數（所有紀錄的打席） */
+  pa: number;
+  /** 幸運值：失誤 ÷ 打數 */
+  luckValue: number;
+  /** 純長打率 ISO：(二安 + 三安×2 + 全壘×3) / 打數 */
+  iso: number;
+  /** 惡運值：雙殺 ÷ (三振+滾地+飛球+野選+雙殺) */
+  badLuckValue: number;
+  /** 慢壘 wOBA */
+  woba: number;
+  /** 進攻貢獻分：(球員wOBA/全隊平均wOBA)×100 */
+  wobaPlus: number;
 }
 
 export interface GitHubConfig {

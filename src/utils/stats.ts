@@ -30,6 +30,16 @@ function formatRate(value: number): number {
   return Math.round(value * 1000) / 1000;
 }
 
+function wobaNumerator(stats: Pick<BattingStats, 'bb' | 'singles' | 'doubles' | 'triples' | 'hr'>): number {
+  return (
+    0.7 * stats.bb +
+    0.9 * stats.singles +
+    1.25 * stats.doubles +
+    1.6 * stats.triples +
+    2.0 * stats.hr
+  );
+}
+
 export function calculatePlayerStats(
   player: Player,
   games: Game[],
@@ -41,6 +51,7 @@ export function calculatePlayerStats(
 
   const gameIds = new Set<string>();
   let ab = 0;
+  let pa = 0;
   let h = 0;
   let singles = 0;
   let doubles = 0;
@@ -54,6 +65,8 @@ export function calculatePlayerStats(
   let fo = 0;
   let go = 0;
   let dp = 0;
+  let fc = 0;
+  let e = 0;
   let totalBases = 0;
 
   for (const game of filteredGames) {
@@ -62,6 +75,7 @@ export function calculatePlayerStats(
       gameIds.add(game.id);
     }
     for (const atBat of playerAtBats) {
+      pa++;
       if (countsAsAB(atBat.result)) ab++;
       if (isHit(atBat.result)) {
         h++;
@@ -101,6 +115,12 @@ export function calculatePlayerStats(
         case 'DP':
           dp++;
           break;
+        case 'FC':
+          fc++;
+          break;
+        case 'E':
+          e++;
+          break;
       }
       rbi += atBat.rbi;
     }
@@ -110,6 +130,11 @@ export function calculatePlayerStats(
   const obpDenom = ab + bb + hbp + sf;
   const obp = obpDenom > 0 ? (h + bb + hbp) / obpDenom : 0;
   const slg = ab > 0 ? totalBases / ab : 0;
+  const luckValue = ab > 0 ? e / ab : 0;
+  const iso = ab > 0 ? (doubles + triples * 2 + hr * 3) / ab : 0;
+  const badLuckDenom = so + go + fo + fc + dp;
+  const badLuckValue = badLuckDenom > 0 ? dp / badLuckDenom : 0;
+  const woba = pa > 0 ? wobaNumerator({ bb, singles, doubles, triples, hr }) / pa : 0;
 
   return {
     playerId: player.id,
@@ -129,10 +154,18 @@ export function calculatePlayerStats(
     fo,
     go,
     dp,
+    fc,
+    e,
     avg: formatRate(avg),
     obp: formatRate(obp),
     slg: formatRate(slg),
     ops: formatRate(obp + slg),
+    pa,
+    luckValue: formatRate(luckValue),
+    iso: formatRate(iso),
+    badLuckValue: formatRate(badLuckValue),
+    woba: formatRate(woba),
+    wobaPlus: 0,
   };
 }
 
@@ -141,16 +174,91 @@ export function calculateAllStats(
   games: Game[],
   seasonId?: string
 ): BattingStats[] {
-  return players
+  const stats = players
     .map((p) => calculatePlayerStats(p, games, seasonId))
-    .filter((s) => s.ab > 0 || s.bb > 0 || s.hbp > 0)
+    .filter((s) => s.pa > 0);
+
+  const teamNumerator = stats.reduce((sum, s) => sum + wobaNumerator(s), 0);
+  const teamPa = stats.reduce((sum, s) => sum + s.pa, 0);
+  const teamAvgWoba = teamPa > 0 ? teamNumerator / teamPa : 0;
+
+  return stats
+    .map((s) => ({
+      ...s,
+      wobaPlus: formatRate(teamAvgWoba > 0 ? (s.woba / teamAvgWoba) * 100 : 0),
+    }))
     .sort((a, b) => b.ab - a.ab);
+}
+
+/** 全隊平均 wOBA（加總加權分子 ÷ 全隊打席） */
+export function getTeamAvgWoba(stats: BattingStats[]): number {
+  const teamNumerator = stats.reduce((sum, s) => sum + wobaNumerator(s), 0);
+  const teamPa = stats.reduce((sum, s) => sum + s.pa, 0);
+  return teamPa > 0 ? formatRate(teamNumerator / teamPa) : 0;
 }
 
 export function formatAvg(value: number): string {
   if (value === 0) return '.000';
   const str = value.toFixed(3);
   return str.startsWith('0') ? str.slice(1) : str;
+}
+
+export function formatPct(value: number): string {
+  return `${(value * 100).toFixed(1)}%`;
+}
+
+export function formatWobaPlus(value: number): string {
+  return Math.round(value).toString();
+}
+
+/** 進攻貢獻分色彩：100 為全隊平均 */
+export function getWobaPlusTone(value: number): {
+  bg: string;
+  border: string;
+  value: string;
+  label: string;
+} {
+  if (value >= 120) {
+    return {
+      bg: 'bg-amber-50',
+      border: 'border-amber-300',
+      value: 'text-amber-700',
+      label: 'text-amber-600',
+    };
+  }
+  if (value >= 90) {
+    return {
+      bg: 'bg-emerald-50',
+      border: 'border-emerald-300',
+      value: 'text-emerald-700',
+      label: 'text-emerald-600',
+    };
+  }
+  return {
+    bg: 'bg-orange-50',
+    border: 'border-orange-300',
+    value: 'text-orange-700',
+    label: 'text-orange-600',
+  };
+}
+
+const RADAR_MAX = {
+  avg: 0.7,
+  obp: 0.75,
+  luck: 0.2,
+  iso: 0.6,
+  badLuck: 0.2,
+} as const;
+
+/** 雷達圖用 0–100 分（依各指標滿分正規化） */
+export function getRadarScores(stats: BattingStats): number[] {
+  return [
+    Math.min(100, (stats.avg / RADAR_MAX.avg) * 100),
+    Math.min(100, (stats.obp / RADAR_MAX.obp) * 100),
+    Math.min(100, (stats.luckValue / RADAR_MAX.luck) * 100),
+    Math.min(100, (stats.badLuckValue / RADAR_MAX.badLuck) * 100),
+    Math.min(100, (stats.iso / RADAR_MAX.iso) * 100),
+  ];
 }
 
 export function getResultLabel(result: AtBatResult): string {
