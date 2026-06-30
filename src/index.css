@@ -10,6 +10,9 @@
     @apply bg-gray-50 text-gray-900 antialiased;
     padding-bottom: env(safe-area-inset-bottom);
   }
+  button {
+    touch-action: manipulation;
+  }
 }
 
 @layer components {

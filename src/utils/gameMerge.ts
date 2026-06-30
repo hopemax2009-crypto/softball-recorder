@@ -71,24 +71,41 @@ function pickNewerIso(a: string | undefined, b: string | undefined): string | un
   return new Date(a) >= new Date(b) ? a : b;
 }
 
-export function mergeGames(local: Game, remote: Game): Game {
-  const localTime = ts(local.syncUpdatedAt, local.createdAt);
-  const remoteTime = ts(remote.syncUpdatedAt, remote.createdAt);
-  const base = remoteTime >= localTime ? remote : local;
-
+function mergeAtBats(local: Game, remote: Game, preferLocalOnTie: boolean): AtBat[] {
   const atBatMap = new Map<string, AtBat>();
-  for (const a of [...safeArray(local.atBats), ...safeArray(remote.atBats)]) {
+  const [first, second] = preferLocalOnTie
+    ? [remote, local]
+    : [local, remote];
+
+  for (const a of safeArray(first.atBats)) {
+    atBatMap.set(a.id, a);
+  }
+  for (const a of safeArray(second.atBats)) {
     const existing = atBatMap.get(a.id);
     const aTime = new Date(a.updatedAt ?? 0).getTime();
     const eTime = existing ? new Date(existing.updatedAt ?? 0).getTime() : -1;
-    if (!existing || aTime >= eTime) atBatMap.set(a.id, a);
+    if (!existing || aTime >= eTime) {
+      atBatMap.set(a.id, a);
+    }
   }
+  return sortAtBats(Array.from(atBatMap.values()));
+}
+
+export function mergeGames(
+  local: Game,
+  remote: Game,
+  prefer: 'local' | 'remote' = 'remote'
+): Game {
+  const localTime = ts(local.syncUpdatedAt, local.createdAt);
+  const remoteTime = ts(remote.syncUpdatedAt, remote.createdAt);
+  const base = remoteTime >= localTime ? remote : local;
+  const preferLocalOnTie = prefer === 'local';
 
   const merged: Game = {
     ...base,
     lineup: mergeLineup(local, remote),
     opponentScores: mergeOpponentScores(local, remote),
-    atBats: sortAtBats(Array.from(atBatMap.values())),
+    atBats: mergeAtBats(local, remote, preferLocalOnTie),
     isShared: true,
     syncUpdatedAt: new Date().toISOString(),
   };

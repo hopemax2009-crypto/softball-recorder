@@ -32,6 +32,215 @@ const RESULT_COLORS: Record<string, string> = {
   E: 'bg-pink-100 text-pink-800',
 };
 
+type RecordSheetState =
+  | { type: 'new'; playerId: string }
+  | { type: 'edit'; atBat: AtBat }
+  | null;
+
+function ScorePicker({
+  rbi,
+  outs,
+  onRbi,
+  onOuts,
+  onConfirm,
+  onCancel,
+  onQuick,
+  title,
+}: {
+  rbi: number;
+  outs: number;
+  onRbi: (n: number) => void;
+  onOuts: (n: number) => void;
+  onConfirm: () => void;
+  onCancel: () => void;
+  onQuick?: () => void;
+  title: string;
+}) {
+  return (
+    <div>
+      <p className="text-center mb-3 font-medium text-base">{title}</p>
+      {onQuick && (
+        <button
+          type="button"
+          onClick={onQuick}
+          className="w-full mb-3 py-3 rounded-xl bg-white border-2 border-field-green text-field-green text-sm font-bold"
+        >
+          快速：0分0出局
+        </button>
+      )}
+      <p className="text-xs text-gray-500 text-center mb-2">打點</p>
+      <div className="grid grid-cols-5 gap-2">
+        {[0, 1, 2, 3, 4].map((n) => (
+          <button
+            key={n}
+            type="button"
+            onClick={() => onRbi(n)}
+            className={`rounded-xl min-h-[48px] text-base font-bold ${
+              rbi === n ? 'bg-field-green text-white' : 'bg-white text-field-green border-2 border-field-green'
+            }`}
+          >
+            {n}
+          </button>
+        ))}
+      </div>
+      <p className="text-xs text-gray-500 text-center mt-4 mb-2">出局數</p>
+      <div className="grid grid-cols-4 gap-2">
+        {[0, 1, 2, 3].map((n) => (
+          <button
+            key={n}
+            type="button"
+            onClick={() => onOuts(n)}
+            className={`rounded-xl min-h-[48px] text-base font-bold ${
+              outs === n ? 'bg-red-500 text-white' : 'bg-white text-red-500 border-2 border-red-300'
+            }`}
+          >
+            {n}
+          </button>
+        ))}
+      </div>
+      <div className="flex gap-2 mt-4">
+        <button
+          type="button"
+          onClick={onConfirm}
+          className="flex-1 bg-field-green text-white rounded-xl min-h-[48px] text-base font-bold"
+        >
+          確認
+        </button>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="flex-1 bg-gray-200 text-gray-700 rounded-xl min-h-[48px] text-base font-bold"
+        >
+          取消
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function RecordSheetOverlay({
+  recordSheet,
+  activeLineup,
+  players,
+  showRbiPicker,
+  pendingResult,
+  pendingRbi,
+  pendingOuts,
+  editRbi,
+  editOuts,
+  onClose,
+  onResultClick,
+  onPendingRbi,
+  onPendingOuts,
+  onQuickAdd,
+  onConfirmAdd,
+  onCancelRbi,
+  onEditRbi,
+  onEditOuts,
+  onSaveEdit,
+}: {
+  recordSheet: RecordSheetState;
+  activeLineup: Game['lineup'];
+  players: Player[];
+  showRbiPicker: boolean;
+  pendingResult: AtBatResult | null;
+  pendingRbi: number;
+  pendingOuts: number;
+  editRbi: number;
+  editOuts: number;
+  onClose: () => void;
+  onResultClick: (result: AtBatResult) => void;
+  onPendingRbi: (n: number) => void;
+  onPendingOuts: (n: number) => void;
+  onQuickAdd: () => void;
+  onConfirmAdd: () => void;
+  onCancelRbi: () => void;
+  onEditRbi: (n: number) => void;
+  onEditOuts: (n: number) => void;
+  onSaveEdit: () => void;
+}) {
+  if (!recordSheet) return null;
+
+  const sheetPlayerId = recordSheet.type === 'new' ? recordSheet.playerId : recordSheet.atBat.playerId;
+  const sheetPlayer = players.find((p) => p.id === sheetPlayerId);
+  const sheetEntry = activeLineup.find((l) => l.playerId === sheetPlayerId);
+
+  return (
+    <>
+      <button
+        type="button"
+        aria-label="關閉"
+        className="fixed inset-0 z-40 bg-black/40"
+        onClick={onClose}
+      />
+      <div className="fixed inset-x-0 bottom-0 z-50 bg-white rounded-t-2xl shadow-2xl max-h-[88vh] overflow-y-auto">
+        <div className="p-4 pb-6">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <p className="text-xs text-gray-500">
+                {recordSheet.type === 'new' ? '紀錄打席' : '編輯打席'}
+              </p>
+              <p className="text-lg font-bold">
+                {sheetEntry?.battingOrder != null && (
+                  <span className="text-field-green mr-2">#{sheetEntry.battingOrder}</span>
+                )}
+                {sheetPlayer?.name}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="w-10 h-10 rounded-full bg-gray-100 text-gray-600 font-bold text-lg"
+            >
+              ✕
+            </button>
+          </div>
+
+          {recordSheet.type === 'new' && !showRbiPicker && (
+            <div className="grid grid-cols-3 gap-2">
+              {AT_BAT_RESULTS.map((r) => (
+                <button
+                  key={r.value}
+                  type="button"
+                  onClick={() => onResultClick(r.value)}
+                  className={`rounded-xl min-h-[52px] px-1 text-sm font-bold ${RESULT_COLORS[r.value]}`}
+                >
+                  {r.label}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {recordSheet.type === 'new' && showRbiPicker && pendingResult && (
+            <ScorePicker
+              title={`${getResultLabel(pendingResult)}：請選擇打點與出局數`}
+              rbi={pendingRbi}
+              outs={pendingOuts}
+              onRbi={onPendingRbi}
+              onOuts={onPendingOuts}
+              onQuick={onQuickAdd}
+              onConfirm={onConfirmAdd}
+              onCancel={onCancelRbi}
+            />
+          )}
+
+          {recordSheet.type === 'edit' && (
+            <ScorePicker
+              title={`${getResultLabel(recordSheet.atBat.result)}：打點 / 出局數`}
+              rbi={editRbi}
+              outs={editOuts}
+              onRbi={onEditRbi}
+              onOuts={onEditOuts}
+              onConfirm={onSaveEdit}
+              onCancel={onClose}
+            />
+          )}
+        </div>
+      </div>
+    </>
+  );
+}
+
 interface Props {
   games: Game[];
   players: Player[];
@@ -56,11 +265,13 @@ export function RecordPanel({
   const players = playersProp ?? [];
   const [subTab, setSubTab] = useState<RecordSubTab>('record');
   const [selectedPlayer, setSelectedPlayer] = useState('');
+  const [recordSheet, setRecordSheet] = useState<
+    { type: 'new'; playerId: string } | { type: 'edit'; atBat: AtBat } | null
+  >(null);
   const [showRbiPicker, setShowRbiPicker] = useState(false);
   const [pendingResult, setPendingResult] = useState<AtBatResult | null>(null);
   const [pendingRbi, setPendingRbi] = useState(0);
   const [pendingOuts, setPendingOuts] = useState(0);
-  const [editingAtBat, setEditingAtBat] = useState<AtBat | null>(null);
   const [editRbi, setEditRbi] = useState(0);
   const [editOuts, setEditOuts] = useState(0);
 
@@ -90,14 +301,39 @@ export function RecordPanel({
 
   const canRecord = activeGame && isOurBattingHalf(activeGame, activeGame.currentInning, activeGame.currentHalf);
 
+  const closeRecordSheet = () => {
+    setRecordSheet(null);
+    setShowRbiPicker(false);
+    setPendingResult(null);
+    setPendingRbi(0);
+    setPendingOuts(0);
+  };
+
+  const openRecordForPlayer = (playerId: string) => {
+    if (!canRecord) return;
+    setSelectedPlayer(playerId);
+    setRecordSheet({ type: 'new', playerId });
+    setShowRbiPicker(false);
+    setPendingResult(null);
+    setPendingRbi(0);
+    setPendingOuts(0);
+  };
+
+  const openEditForAtBat = (atBat: AtBat) => {
+    setRecordSheet({ type: 'edit', atBat });
+    setEditRbi(atBat.rbi);
+    setEditOuts(atBat.outs);
+    setShowRbiPicker(false);
+    setPendingResult(null);
+  };
+
   const handleSelectHalf = (inning: number, half: HalfInning) => {
     if (!activeGame) return;
     onUpdateGame({ ...activeGame, currentInning: inning, currentHalf: half });
   };
 
   const handleResultClick = (result: AtBatResult) => {
-    if (!activeGame || !selectedPlayer || !canRecord) return;
-    setEditingAtBat(null);
+    if (!activeGame || !selectedPlayer || !canRecord || recordSheet?.type !== 'new') return;
     setPendingResult(result);
     setPendingRbi(0);
     setPendingOuts(0);
@@ -119,16 +355,12 @@ export function RecordPanel({
     };
     const newAtBats = [...activeGame.atBats, atBat];
     onUpdateGame({ ...activeGame, atBats: newAtBats });
-    setShowRbiPicker(false);
-    setPendingResult(null);
-    setPendingRbi(0);
-    setPendingOuts(0);
 
     const lineup = activeGame.lineup.filter((l) => l.isActive).sort((a, b) => a.battingOrder - b.battingOrder);
     const idx = lineup.findIndex((l) => l.playerId === selectedPlayer);
-    if (idx >= 0 && lineup.length > 0) {
-      setSelectedPlayer(lineup[(idx + 1) % lineup.length].playerId);
-    }
+    const nextPlayerId = idx >= 0 && lineup.length > 0 ? lineup[(idx + 1) % lineup.length].playerId : selectedPlayer;
+    setSelectedPlayer(nextPlayerId);
+    closeRecordSheet();
   };
 
   const undoLast = () => {
@@ -136,24 +368,17 @@ export function RecordPanel({
     onUpdateGame({ ...activeGame, atBats: activeGame.atBats.slice(0, -1) });
   };
 
-  const startEditAtBat = (atBat: AtBat) => {
-    setEditingAtBat(atBat);
-    setEditRbi(atBat.rbi);
-    setEditOuts(atBat.outs);
-    setShowRbiPicker(false);
-    setPendingResult(null);
-  };
-
   const saveEditAtBat = () => {
-    if (!activeGame || !editingAtBat) return;
+    if (!activeGame || recordSheet?.type !== 'edit') return;
+    const { atBat } = recordSheet;
     const now = new Date().toISOString();
     onUpdateGame({
       ...activeGame,
       atBats: activeGame.atBats.map((a) =>
-        a.id === editingAtBat.id ? { ...a, rbi: editRbi, outs: editOuts, updatedAt: now } : a
+        a.id === atBat.id ? { ...a, rbi: editRbi, outs: editOuts, updatedAt: now } : a
       ),
     });
-    setEditingAtBat(null);
+    closeRecordSheet();
   };
 
   const deleteAtBat = (atBatId: string) => {
@@ -164,76 +389,10 @@ export function RecordPanel({
       atBats: activeGame.atBats.filter((a) => a.id !== atBatId),
       syncUpdatedAt: now,
     });
-    if (editingAtBat?.id === atBatId) setEditingAtBat(null);
+    if (recordSheet?.type === 'edit' && recordSheet.atBat.id === atBatId) {
+      closeRecordSheet();
+    }
   };
-
-  const ScorePicker = ({
-    rbi,
-    outs,
-    onRbi,
-    onOuts,
-    onConfirm,
-    onCancel,
-    onQuick,
-    title,
-  }: {
-    rbi: number;
-    outs: number;
-    onRbi: (n: number) => void;
-    onOuts: (n: number) => void;
-    onConfirm: () => void;
-    onCancel: () => void;
-    onQuick?: () => void;
-    title: string;
-  }) => (
-    <div className="mt-2 p-2 bg-green-50 rounded-xl">
-      <p className="text-xs text-center mb-1">{title}</p>
-      {onQuick && (
-        <button
-          onClick={onQuick}
-          className="w-full mb-2 py-2 rounded-lg bg-white border-2 border-field-green text-field-green text-xs font-bold"
-        >
-          快速：0分0出局
-        </button>
-      )}
-      <p className="text-[10px] text-gray-500 text-center mb-1">打點</p>
-      <div className="grid grid-cols-5 gap-1">
-        {[0, 1, 2, 3, 4].map((n) => (
-          <button
-            key={n}
-            onClick={() => onRbi(n)}
-            className={`rounded-lg py-1 text-sm font-bold ${
-              rbi === n ? 'bg-field-green text-white' : 'bg-white text-field-green border border-field-green'
-            }`}
-          >
-            {n}
-          </button>
-        ))}
-      </div>
-      <p className="text-[10px] text-gray-500 text-center mt-2 mb-1">出局數</p>
-      <div className="grid grid-cols-4 gap-1">
-        {[0, 1, 2, 3].map((n) => (
-          <button
-            key={n}
-            onClick={() => onOuts(n)}
-            className={`rounded-lg py-1 text-sm font-bold ${
-              outs === n ? 'bg-red-500 text-white' : 'bg-white text-red-500 border border-red-300'
-            }`}
-          >
-            {n}
-          </button>
-        ))}
-      </div>
-      <div className="flex gap-1 mt-2">
-        <button onClick={onConfirm} className="flex-1 bg-field-green text-white rounded-lg py-1.5 text-sm font-bold">
-          確認
-        </button>
-        <button onClick={onCancel} className="flex-1 bg-gray-200 text-gray-700 rounded-lg py-1.5 text-sm font-bold">
-          取消
-        </button>
-      </div>
-    </div>
-  );
 
   if (!activeGame) {
     return (
@@ -365,128 +524,130 @@ export function RecordPanel({
               請先到「先發」分頁設定上場球員與棒次
             </Card>
           ) : (
-            <div className="grid grid-cols-2 gap-2">
-              {/* 左：球員名單 */}
-              <div className="space-y-1">
-                <h4 className="text-xs text-gray-500 px-1">打序</h4>
-                {activeLineup.map((entry) => {
-                  const player = players.find((p) => p.id === entry.playerId);
-                  const isSelected = selectedPlayer === entry.playerId;
-                  const isLastOut = lastOutId === entry.playerId;
-                  const playerAtBats = currentHalfAtBats.filter((a) => a.playerId === entry.playerId);
-                  return (
-                    <button
-                      key={entry.playerId}
-                      onClick={() => canRecord && setSelectedPlayer(entry.playerId)}
-                      disabled={!canRecord}
-                      className={`w-full text-left rounded-xl px-2 py-2 text-sm border-2 transition ${
-                        isSelected ? 'border-field-green bg-green-50' : 'border-transparent bg-white'
-                      } ${isLastOut ? 'ring-2 ring-red-400' : ''} ${!canRecord ? 'opacity-60' : ''}`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="font-medium truncate">
-                          <span className="text-field-green mr-1">{entry.battingOrder}</span>
-                          {player?.name}
-                        </span>
-                        {isLastOut && (
-                          <span className="text-[10px] bg-red-500 text-white px-1.5 rounded-full shrink-0">出局</span>
-                        )}
-                      </div>
-                      {playerAtBats.length > 0 && (
-                        <div className="text-[10px] text-gray-400 mt-0.5 truncate">
-                          {playerAtBats.map((a) => getResultLabel(a.result)).join('、')}
-                        </div>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* 右：打席結果 */}
+            <div className="space-y-3">
+              {/* 打序：點擊球員彈出紀錄面板 */}
               <div>
-                <h4 className="text-xs text-gray-500 px-1 mb-1">打席結果</h4>
-                {!canRecord ? (
-                  <p className="text-xs text-gray-400 text-center py-8">我方未進攻</p>
-                ) : (
-                  <>
-                    <div className="grid grid-cols-2 gap-1">
-                      {AT_BAT_RESULTS.map((r) => (
-                        <button
-                          key={r.value}
-                          onClick={() => handleResultClick(r.value)}
-                          className={`rounded-xl py-2 text-xs font-bold ${RESULT_COLORS[r.value]}`}
-                        >
-                          {r.label}
-                        </button>
-                      ))}
-                    </div>
-                    {showRbiPicker && pendingResult && (
-                      <ScorePicker
-                        title={`${getResultLabel(pendingResult)}：請選擇打點與出局數`}
-                        rbi={pendingRbi}
-                        outs={pendingOuts}
-                        onRbi={setPendingRbi}
-                        onOuts={setPendingOuts}
-                        onQuick={() => addAtBat(pendingResult, 0, 0)}
-                        onConfirm={() => addAtBat(pendingResult, pendingRbi, pendingOuts)}
-                        onCancel={() => {
-                          setShowRbiPicker(false);
-                          setPendingResult(null);
-                        }}
-                      />
-                    )}
-                    {editingAtBat && (
-                      <ScorePicker
-                        title={`編輯：${getResultLabel(editingAtBat.result)}`}
-                        rbi={editRbi}
-                        outs={editOuts}
-                        onRbi={setEditRbi}
-                        onOuts={setEditOuts}
-                        onConfirm={saveEditAtBat}
-                        onCancel={() => setEditingAtBat(null)}
-                      />
-                    )}
-                  </>
-                )}
-
-                <div className="mt-2 space-y-1 max-h-48 overflow-y-auto">
-                  <p className="text-[10px] text-gray-400 px-1">點擊紀錄可編輯打點/出局數</p>
-                  {[...activeGame.atBats].reverse().map((atBat) => {
-                    const player = players.find((p) => p.id === atBat.playerId);
-                    const isEditing = editingAtBat?.id === atBat.id;
+                <h4 className="text-xs text-gray-500 px-1 mb-2">
+                  {canRecord ? '打序（點擊球員紀錄打席）' : '打序'}
+                </h4>
+                <div className="space-y-2">
+                  {activeLineup.map((entry) => {
+                    const player = players.find((p) => p.id === entry.playerId);
+                    const isNextBatter = canRecord && selectedPlayer === entry.playerId;
+                    const isLastOut = lastOutId === entry.playerId;
+                    const playerAtBats = currentHalfAtBats.filter((a) => a.playerId === entry.playerId);
                     return (
-                      <div
-                        key={atBat.id}
-                        className={`text-[10px] rounded-lg px-2 py-1 flex justify-between items-center ${
-                          isEditing ? 'bg-green-100 ring-1 ring-field-green' : 'bg-gray-50'
-                        }`}
+                      <button
+                        key={entry.playerId}
+                        type="button"
+                        onClick={() => openRecordForPlayer(entry.playerId)}
+                        disabled={!canRecord}
+                        className={`w-full flex items-center gap-3 rounded-xl px-4 py-3 border-2 text-left ${
+                          isNextBatter ? 'border-field-green bg-green-50' : 'border-gray-200 bg-white'
+                        } ${isLastOut ? 'ring-2 ring-red-400' : ''} ${!canRecord ? 'opacity-60' : ''}`}
                       >
-                        <button onClick={() => startEditAtBat(atBat)} className="flex-1 text-left">
-                          <span className="text-gray-400 mr-1">
-                            {getInningLabel(atBat.inning, atBat.half)}
+                        <span className="text-xl font-bold text-field-green w-7 shrink-0">{entry.battingOrder}</span>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-bold text-base truncate">{player?.name}</p>
+                          {playerAtBats.length > 0 && (
+                            <p className="text-xs text-gray-400 mt-0.5 truncate">
+                              本局：{playerAtBats.map((a) => getResultLabel(a.result)).join('、')}
+                            </p>
+                          )}
+                        </div>
+                        {isNextBatter && (
+                          <span className="text-xs bg-field-green text-white px-2.5 py-1 rounded-full shrink-0">
+                            打擊
                           </span>
-                          {player?.name} {getResultLabel(atBat.result)}
-                          {atBat.rbi > 0 ? ` +${atBat.rbi}分` : ''} / 出局{atBat.outs}
-                        </button>
-                        <button
-                          onClick={() => deleteAtBat(atBat.id)}
-                          className="text-red-400 px-1 shrink-0"
-                        >
-                          刪
-                        </button>
-                      </div>
+                        )}
+                        {isLastOut && (
+                          <span className="text-xs bg-red-500 text-white px-2 py-1 rounded-full shrink-0">出局</span>
+                        )}
+                        {canRecord && (
+                          <span className="text-gray-300 shrink-0">›</span>
+                        )}
+                      </button>
                     );
                   })}
                 </div>
               </div>
+
+              {/* 紀錄列表 */}
+              <div className="space-y-1.5">
+                <p className="text-xs text-gray-400 px-1">點擊紀錄可編輯打點/出局數</p>
+                {[...activeGame.atBats].reverse().map((atBat) => {
+                  const player = players.find((p) => p.id === atBat.playerId);
+                  const isEditing = recordSheet?.type === 'edit' && recordSheet.atBat.id === atBat.id;
+                  return (
+                    <div
+                      key={atBat.id}
+                      className={`text-sm rounded-xl px-3 py-2.5 flex justify-between items-center gap-2 ${
+                        isEditing ? 'bg-green-100 ring-2 ring-field-green' : 'bg-gray-50'
+                      }`}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => openEditForAtBat(atBat)}
+                        className="flex-1 text-left min-h-[44px] flex flex-col justify-center active:opacity-70"
+                      >
+                        <span className="text-gray-400 text-xs">
+                          {getInningLabel(atBat.inning, atBat.half)}
+                        </span>
+                        <span>
+                          {player?.name} {getResultLabel(atBat.result)}
+                          {atBat.rbi > 0 ? ` +${atBat.rbi}分` : ''} / 出局{atBat.outs}
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => deleteAtBat(atBat.id)}
+                        className="text-red-500 font-medium px-3 py-2 rounded-lg bg-red-50 min-h-[44px] shrink-0"
+                      >
+                        刪
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <RecordSheetOverlay
+                recordSheet={recordSheet}
+                activeLineup={activeLineup}
+                players={players}
+                showRbiPicker={showRbiPicker}
+                pendingResult={pendingResult}
+                pendingRbi={pendingRbi}
+                pendingOuts={pendingOuts}
+                editRbi={editRbi}
+                editOuts={editOuts}
+                onClose={closeRecordSheet}
+                onResultClick={handleResultClick}
+                onPendingRbi={setPendingRbi}
+                onPendingOuts={setPendingOuts}
+                onQuickAdd={() => pendingResult && addAtBat(pendingResult, 0, 0)}
+                onConfirmAdd={() => pendingResult && addAtBat(pendingResult, pendingRbi, pendingOuts)}
+                onCancelRbi={() => {
+                  setShowRbiPicker(false);
+                  setPendingResult(null);
+                }}
+                onEditRbi={setEditRbi}
+                onEditOuts={setEditOuts}
+                onSaveEdit={saveEditAtBat}
+              />
             </div>
           )}
 
           {canRecord && (
-            <Button variant="secondary" onClick={undoLast} className="w-full !py-2 text-sm" disabled={activeGame.atBats.length === 0}>
+            <Button
+              variant="secondary"
+              onClick={undoLast}
+              className="w-full !py-3 text-base"
+              disabled={activeGame.atBats.length === 0}
+            >
               復原上一筆
             </Button>
           )}
+          {recordSheet && <div className="h-4" aria-hidden />}
         </>
       )}
     </div>

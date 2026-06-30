@@ -208,19 +208,29 @@ export function useAppData() {
     [data, persist]
   );
 
-  const updateGame = useCallback(
-    (game: Game) => {
-      if (!data) return;
-      const updated: Game = game.isShared || game.liveRoomId
-        ? { ...game, syncUpdatedAt: new Date().toISOString() }
-        : game;
-      persist({
-        ...data,
-        games: data.games.map((g) => (g.id === updated.id ? updated : g)),
-      });
-    },
-    [data, persist]
-  );
+  const updateGame = useCallback((game: Game) => {
+    setData((current) => {
+      if (!current) return current;
+      const updated: Game =
+        game.isShared || game.liveRoomId
+          ? { ...game, syncUpdatedAt: new Date().toISOString() }
+          : game;
+      const newData: UserData = {
+        ...current,
+        games: current.games.map((g) => (g.id === updated.id ? updated : g)),
+        updatedAt: new Date().toISOString(),
+      };
+      window.setTimeout(() => saveData(newData), 0);
+      const s = sessionRef.current;
+      if (s && isFirebaseConfigured()) {
+        clearTimeout(cloudTimerRef.current);
+        cloudTimerRef.current = setTimeout(() => {
+          void pushToCloud(s.userId, newData);
+        }, 800);
+      }
+      return newData;
+    });
+  }, [pushToCloud]);
 
   const deleteGame = useCallback(
     (gameId: string) => {

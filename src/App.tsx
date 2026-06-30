@@ -1,5 +1,6 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import type { Game, Player, TabId } from './types';
+import { isSameGameView } from './utils/gameEquals';
 import { getRecorderParams } from './utils/liveRoom';
 import { loadHostRoom, type HostRoomInfo } from './utils/hostRoomStorage';
 import { useAppData } from './hooks/useAppData';
@@ -35,6 +36,10 @@ function HostApp() {
 
   const [tab, setTab] = useState<TabId>('record');
   const [activeGame, setActiveGame] = useState<Game | null>(null);
+  const activeGameRef = useRef<Game | null>(null);
+  activeGameRef.current = activeGame;
+
+  const getLocalGame = useCallback(() => activeGameRef.current, []);
 
   const hostRoom = useMemo((): HostRoomInfo | null => {
     if (!activeGame?.liveRoomId) return null;
@@ -50,20 +55,46 @@ function HostApp() {
 
   const handleGameSynced = useCallback(
     (game: Game, players: Player[]) => {
-      mergePlayersFromGame({ ...game, rosterSnapshot: players.map((p) => ({ id: p.id, name: p.name, number: p.number })) });
+      const local = activeGameRef.current;
+      if (isSameGameView(local, game)) return;
+
+      mergePlayersFromGame({
+        ...game,
+        rosterSnapshot: players.map((p) => ({ id: p.id, name: p.name, number: p.number })),
+      });
+      activeGameRef.current = game;
       updateGame(game);
       setActiveGame(game);
     },
     [updateGame, mergePlayersFromGame]
   );
 
-  const { syncState, pushNow } = useLiveRoomSync(
+  const { syncState, pushNow, schedulePush } = useLiveRoomSync(
     hostRoom?.roomId,
     hostRoom?.pin,
     activeGame,
     data?.players ?? [],
     handleGameSynced,
-    !!activeGame?.liveRoomId && !!hostRoom
+    !!activeGame?.liveRoomId && !!hostRoom,
+    getLocalGame
+  );
+
+  const handleSelectGame = (game: Game | null) => {
+    activeGameRef.current = game;
+    setActiveGame(game);
+    if (game) setTab('record');
+  };
+
+  const handleUpdateGame = useCallback(
+    (game: Game) => {
+      activeGameRef.current = game;
+      setActiveGame(game);
+      updateGame(game);
+      if (game.liveRoomId) {
+        schedulePush(game);
+      }
+    },
+    [updateGame, schedulePush]
   );
 
   if (loading) {
@@ -78,15 +109,6 @@ function HostApp() {
     return <Login onAuth={onAuth} />;
   }
 
-  const handleSelectGame = (game: Game | null) => {
-    setActiveGame(game);
-    if (game) setTab('record');
-  };
-
-  const handleUpdateGame = (game: Game) => {
-    updateGame(game);
-    setActiveGame(game);
-  };
   const TITLES: Record<TabId, string> = {
     record: activeGame ? `主控 · ${activeGame.opponent}` : '打擊紀錄',
     games: '比賽管理',

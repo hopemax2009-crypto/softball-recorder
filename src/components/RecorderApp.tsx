@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Game, Player } from '../types';
 import { isFirebaseConfigured } from '../config/firebase';
 import { joinLiveRoom } from '../services/liveRoomSync';
+import { isSameGameView } from '../utils/gameEquals';
 import { getRecorderParams } from '../utils/liveRoom';
 import { useLiveRoomSync } from '../hooks/useLiveRoomSync';
 import { RecordPanel } from './RecordPanel';
@@ -20,19 +21,26 @@ export function RecorderApp() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const autoJoinRef = useRef(false);
+  const gameRef = useRef<Game | null>(null);
+  gameRef.current = game;
+
+  const getLocalGame = useCallback(() => gameRef.current, []);
 
   const handleGameUpdate = useCallback((g: Game, p: Player[]) => {
+    if (isSameGameView(gameRef.current, g)) return;
+    gameRef.current = g;
     setGame(g);
     setPlayers(p ?? []);
   }, []);
 
-  const { syncState, pushNow } = useLiveRoomSync(
+  const { syncState, pushNow, schedulePush } = useLiveRoomSync(
     joined ? roomId : undefined,
     joined ? pin : undefined,
     game,
     players,
     handleGameUpdate,
-    joined
+    joined,
+    getLocalGame
   );
 
   const attemptJoin = useCallback(async (id: string, code: string) => {
@@ -67,9 +75,14 @@ export function RecorderApp() {
     await attemptJoin(roomId, pin);
   };
 
-  const handleUpdateGame = useCallback((updated: Game) => {
-    setGame(updated);
-  }, []);
+  const handleUpdateGame = useCallback(
+    (updated: Game) => {
+      gameRef.current = updated;
+      setGame(updated);
+      schedulePush(updated);
+    },
+    [schedulePush]
+  );
 
   useEffect(() => {
     if (params?.roomId && params?.pin) {

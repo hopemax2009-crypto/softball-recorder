@@ -65,7 +65,11 @@ export async function updateLiveRoomGame(roomId: string, game: Game, players?: P
   await runTransaction(roomRef(roomId), (current) => {
     if (!current) return current;
     const room = current as LiveRoom;
-    const merged = mergeGames(normalizeGame(room.game), normalizeGame({ ...game, syncUpdatedAt: new Date().toISOString() }));
+    const merged = mergeGames(
+      normalizeGame(room.game),
+      normalizeGame({ ...game, syncUpdatedAt: new Date().toISOString() }),
+      'remote'
+    );
     return sanitizeRoom({
       ...room,
       game: merged,

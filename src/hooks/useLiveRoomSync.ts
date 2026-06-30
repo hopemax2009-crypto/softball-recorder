@@ -3,6 +3,7 @@ import type { Game, Player } from '../types';
 import { mergeGames } from '../utils/gameMerge';
 import { subscribeLiveRoom, updateLiveRoomGame } from '../services/liveRoomSync';
 import type { LiveRoom } from '../utils/liveRoom';
+
 export interface LiveSyncState {
   connected: boolean;
   syncing: boolean;
@@ -16,7 +17,8 @@ export function useLiveRoomSync(
   game: Game | null,
   players: Player[],
   onGameUpdate: (game: Game, players: Player[]) => void,
-  enabled: boolean
+  enabled: boolean,
+  getLocalGame?: () => Game | null
 ) {
   const [syncState, setSyncState] = useState<LiveSyncState>({
     connected: false,
@@ -27,16 +29,28 @@ export function useLiveRoomSync(
   const gameRef = useRef(game);
   const playersRef = useRef(players);
   const pushingRef = useRef(false);
+  const pushTimerRef = useRef<ReturnType<typeof setTimeout>>();
+  const getLocalGameRef = useRef(getLocalGame);
+  const onGameUpdateRef = useRef(onGameUpdate);
   gameRef.current = game;
   playersRef.current = players;
+  getLocalGameRef.current = getLocalGame;
+  onGameUpdateRef.current = onGameUpdate;
+
+  useEffect(() => () => clearTimeout(pushTimerRef.current), []);
 
   const pushGame = useCallback(async (g: Game, p: Player[]) => {
     if (!roomId || pushingRef.current) return;
     pushingRef.current = true;
-    setSyncState((s) => ({ ...s, syncing: true }));
     try {
       await updateLiveRoomGame(roomId, g, p);
-      setSyncState((s) => ({ ...s, syncing: false, lastSync: new Date(), error: null }));
+      setSyncState((s) => ({
+        ...s,
+        syncing: false,
+        connected: true,
+        lastSync: new Date(),
+        error: null,
+      }));
     } catch (e) {
       setSyncState((s) => ({
         ...s,
@@ -48,6 +62,16 @@ export function useLiveRoomSync(
     }
   }, [roomId]);
 
+  const schedulePush = useCallback(
+    (g: Game) => {
+      clearTimeout(pushTimerRef.current);
+      pushTimerRef.current = setTimeout(() => {
+        void pushGame(g, playersRef.current);
+      }, 600);
+    },
+    [pushGame]
+  );
+
   useEffect(() => {
     if (!enabled || !roomId || !pin) return;
 
@@ -55,28 +79,25 @@ export function useLiveRoomSync(
       roomId,
       pin,
       (room: LiveRoom) => {
-        if (pushingRef.current) return;
-        setSyncState({ connected: true, syncing: false, lastSync: new Date(), error: null });
-        const local = gameRef.current;
+        setSyncState((s) => ({ ...s, connected: true, lastSync: new Date(), error: null }));
+        const local = getLocalGameRef.current?.() ?? gameRef.current;
         const merged =
           local && local.liveRoomId === room.game.liveRoomId
-            ? mergeGames(local, room.game)
+            ? mergeGames(local, room.game, 'local')
             : room.game;
-        onGameUpdate(merged, room.players);
+        onGameUpdateRef.current(merged, room.players);
       },
       (msg) => setSyncState((s) => ({ ...s, error: msg, connected: false }))
     );
 
     return unsub;
-  }, [enabled, roomId, pin, onGameUpdate]);
+  }, [enabled, roomId, pin]);
 
-  useEffect(() => {
-    if (!enabled || !roomId || !game?.liveRoomId) return;
-    const timer = setTimeout(() => {
-      if (gameRef.current) pushGame(gameRef.current, playersRef.current);
-    }, 600);
-    return () => clearTimeout(timer);
-  }, [enabled, roomId, game, players, pushGame]);
+  const pushNow = useCallback(() => {
+    clearTimeout(pushTimerRef.current);
+    const latest = getLocalGameRef.current?.() ?? gameRef.current;
+    if (latest) void pushGame(latest, playersRef.current);
+  }, [pushGame]);
 
-  return { syncState, pushNow: () => gameRef.current && pushGame(gameRef.current, playersRef.current) };
+  return { syncState, pushNow, schedulePush };
 }
