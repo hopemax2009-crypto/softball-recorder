@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "python scripts/generate-icons.py && tsc --noEmit && vite build && node scripts/copy-404.mjs",
+    "build": "tsc --noEmit && vite build && node scripts/copy-404.mjs",
+    "icons": "python scripts/generate-icons.py",
     "preview": "vite preview"
   },
   "dependencies": {
