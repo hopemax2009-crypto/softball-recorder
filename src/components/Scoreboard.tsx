@@ -106,21 +106,6 @@ export function Scoreboard({
     setEditing({ inning, half });
   };
 
-  const saveOpponentRuns = (inning: number, half: HalfInning, runs: number) => {
-    const now = new Date().toISOString();
-    onUpdate({
-      ...game,
-      opponentScores: setOpponentScoreWithPitcher(
-        opponentScores,
-        inning,
-        half,
-        runs,
-        getCurrentPitcherId(game)
-      ),
-      syncUpdatedAt: now,
-    });
-  };
-
   const adjustOpponentScore = (delta: number) => {
     if (!editing) return;
     const now = new Date().toISOString();
