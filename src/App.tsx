@@ -16,7 +16,7 @@ import { getPublicStatsParams } from './utils/publicStats';
 import { PlayersPanel } from './components/PlayersPanel';
 import { SettingsPanel } from './components/SettingsPanel';
 import { PageHelpButton } from './components/PageHelpButton';
-import type { HelpPageId } from './data/helpContent';
+import type { HelpPageId } from './content/helpContent';
 
 function HostApp() {
   const {

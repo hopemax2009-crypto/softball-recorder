@@ -1,4 +1,4 @@
-import type { HelpContent } from '../data/helpContent';
+import type { HelpContent, HelpItem, HelpSection } from '../content/helpContent';
 
 interface Props {
   content: HelpContent;
@@ -26,11 +26,11 @@ export function HelpModal({ content, onClose }: Props) {
           </button>
         </div>
         <div className="flex-1 overflow-y-auto overscroll-contain px-4 py-4 space-y-4">
-          {content.sections.map((section) => (
+          {content.sections.map((section: HelpSection) => (
             <div key={section.title}>
               <h3 className="text-sm font-semibold text-gray-800 mb-2">{section.title}</h3>
               <ul className="space-y-2">
-                {section.items.map((item, i) => (
+                {section.items.map((item: HelpItem, i: number) => (
                   <li key={i} className="text-sm text-gray-600 leading-relaxed">
                     {item.label && (
                       <span className="font-medium text-field-green">{item.label}：</span>

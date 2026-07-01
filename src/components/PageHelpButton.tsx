@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { HELP_CONTENT, type HelpPageId } from '../data/helpContent';
+import { HELP_CONTENT, type HelpPageId } from '../content/helpContent';
 import { HelpModal } from './HelpModal';
 
 interface Props {
