@@ -1,9 +1,9 @@
 ﻿<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="壘球賽紀錄器">
-  <rect width="512" height="512" rx="96" fill="#2d6a4f"/>
+  <rect width="512" height="512" fill="#2d6a4f"/>
   <circle cx="256" cy="228" r="118" fill="#f8fafc"/>
   <path d="M168 188Q256 128 344 188Q256 248 168 188Z" fill="none" stroke="#dc2626" stroke-width="10" stroke-linecap="round"/>
   <path d="M168 268Q256 328 344 268Q256 208 168 268Z" fill="none" stroke="#dc2626" stroke-width="10" stroke-linecap="round"/>
-  <rect x="312" y="312" width="112" height="136" rx="16" fill="#fff" opacity=".95"/>
+  <rect x="312" y="312" width="112" height="136" rx="16" fill="#fff"/>
   <rect x="332" y="340" width="72" height="8" rx="4" fill="#2d6a4f" opacity=".35"/>
   <rect x="332" y="364" width="56" height="8" rx="4" fill="#2d6a4f" opacity=".35"/>
   <rect x="332" y="388" width="64" height="8" rx="4" fill="#2d6a4f" opacity=".35"/>
