@@ -268,6 +268,7 @@ interface Props {
   onSyncNow?: () => void;
   onSelectGame: (game: Game | null) => void;
   onUpdateGame: (game: Game) => void;
+  teamName?: string;
 }
 
 export function RecordPanel({
@@ -280,6 +281,7 @@ export function RecordPanel({
   onSyncNow,
   onSelectGame,
   onUpdateGame,
+  teamName = '我方',
 }: Props) {
   const players = playersProp ?? [];
   const [subTab, setSubTab] = useState<RecordSubTab>('record');
@@ -293,6 +295,7 @@ export function RecordPanel({
   const [pendingOuts, setPendingOuts] = useState(0);
   const [editRbi, setEditRbi] = useState(0);
   const [editOuts, setEditOuts] = useState(0);
+  const [lineupPage, setLineupPage] = useState(0);
 
   const recentGames = [...games].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 10);
 
@@ -310,6 +313,22 @@ export function RecordPanel({
     if (!activeGame || recorderMode) return;
     setSubTab(hasActiveLineup(activeGame) ? 'record' : 'lineup');
   }, [activeGame?.id, recorderMode]);
+
+  const currentBatterIdx = activeLineup.findIndex((e) => e.playerId === selectedPlayer);
+  const lineupPageCount = activeLineup.length > 0 ? Math.ceil(activeLineup.length / 4) : 1;
+
+  useEffect(() => {
+    setLineupPage(0);
+  }, [selectedPlayer, activeGame?.id, activeGame?.currentInning, activeGame?.currentHalf]);
+
+  const visibleLineupEntries =
+    activeLineup.length === 0
+      ? []
+      : Array.from({ length: Math.min(4, activeLineup.length) }, (_, i) => {
+          const base = currentBatterIdx >= 0 ? currentBatterIdx : 0;
+          const idx = (base + lineupPage * 4 + i) % activeLineup.length;
+          return activeLineup[idx];
+        });
 
   const currentHalfAtBats = activeGame
     ? getAtBatsForHalf(activeGame, activeGame.currentInning, activeGame.currentHalf)
@@ -473,8 +492,8 @@ export function RecordPanel({
       <div className="p-4">
         <EmptyState
           icon="👥"
-          title={recorderMode ? '等待主控端設定先發' : '尚無球員'}
-          description={recorderMode ? '請主控端在「先發」分頁設定上場球員' : '請先到「球員」頁面新增球員'}
+          title={recorderMode ? '等待主控端設定棒次' : '尚無球員'}
+          description={recorderMode ? '請主控端在「棒次」分頁設定打序' : '請先到「球員」頁面新增球員'}
         />
         {!recorderMode && (
           <Button variant="secondary" onClick={() => onSelectGame(null)} className="w-full mt-4">返回</Button>
@@ -510,6 +529,8 @@ export function RecordPanel({
         onUpdate={guardedUpdate}
         onSelectHalf={handleSelectHalf}
         readOnly={isReadOnly}
+        ourTeamName={teamName}
+        opponentName={activeGame.opponent}
       />
 
       {showSync && (
@@ -546,17 +567,29 @@ export function RecordPanel({
               subTab === t ? 'bg-white shadow text-field-green' : 'text-gray-500'
             }`}
           >
-            {t === 'record' ? '紀錄' : t === 'lineup' ? '先發' : '守位'}
+            {t === 'record' ? '紀錄' : t === 'lineup' ? '棒次' : '守位'}
           </button>
         ))}
       </div>
 
       {!recorderMode && subTab === 'lineup' && (
-        <LineupPanel game={activeGame} players={players} onUpdate={guardedUpdate} readOnly={isReadOnly} />
+        <LineupPanel
+          game={activeGame}
+          players={players}
+          onUpdate={guardedUpdate}
+          readOnly={isReadOnly}
+          hasBottomNav={hasBottomNav}
+        />
       )}
 
       {subTab === 'positions' && (
-        <PositionPanel game={activeGame} players={players} />
+        <PositionPanel
+          game={activeGame}
+          players={players}
+          onUpdate={recorderMode || isReadOnly ? undefined : guardedUpdate}
+          readOnly={isReadOnly}
+          hasBottomNav={hasBottomNav}
+        />
       )}
 
       {subTab === 'record' && (
@@ -571,7 +604,7 @@ export function RecordPanel({
               </span>
             )}
             {!canRecord && !isReadOnly && (
-              <span className="ml-2 text-orange-600">對方進攻 — 請點比分表輸入得分</span>
+              <span className="ml-2 text-orange-600">{activeGame.opponent} 進攻 — 請點比分表輸入得分</span>
             )}
             {isReadOnly && (
               <span className="ml-2 text-gray-500">僅供查閱</span>
@@ -580,17 +613,44 @@ export function RecordPanel({
 
           {activeLineup.length === 0 ? (
             <Card className="text-center text-sm text-gray-500 py-6">
-              請先到「先發」分頁設定上場球員與棒次
+              請先到「棒次」分頁排定打序
             </Card>
           ) : (
             <div className="space-y-3">
-              {/* 打序：點擊球員彈出紀錄面板 */}
               <div>
-                <h4 className="text-xs text-gray-500 px-1 mb-2">
-                  {canRecord ? '打序（點擊球員紀錄打席）' : '打序'}
-                </h4>
+                <div className="flex items-center justify-between mb-2 px-1">
+                  <h4 className="text-xs text-gray-500">
+                    {canRecord ? '打序（點擊紀錄 · 每頁 4 棒）' : '打序'}
+                  </h4>
+                  {lineupPageCount > 1 && (
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setLineupPage((p) => (p - 1 + lineupPageCount) % lineupPageCount)}
+                        className="w-8 h-8 rounded-lg bg-gray-100 text-gray-600 font-bold text-sm"
+                        aria-label="上一頁打序"
+                      >
+                        ‹
+                      </button>
+                      <span className="text-xs text-gray-500 min-w-[3rem] text-center">
+                        {lineupPage + 1}/{lineupPageCount}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setLineupPage((p) => (p + 1) % lineupPageCount)}
+                        className="w-8 h-8 rounded-lg bg-gray-100 text-gray-600 font-bold text-sm"
+                        aria-label="下一頁打序"
+                      >
+                        ›
+                      </button>
+                    </div>
+                  )}
+                </div>
+                {lineupPage === 0 && canRecord && (
+                  <p className="text-[10px] text-field-green px-1 mb-2">本頁：目前棒次 + 下 3 棒</p>
+                )}
                 <div className="space-y-2">
-                  {activeLineup.map((entry) => {
+                  {visibleLineupEntries.map((entry) => {
                     const player = players.find((p) => p.id === entry.playerId);
                     const isNextBatter = canRecord && selectedPlayer === entry.playerId;
                     const isLastOut = lastOutId === entry.playerId;

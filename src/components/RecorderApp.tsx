@@ -19,6 +19,7 @@ export function RecorderApp() {
   const [joined, setJoined] = useState(false);
   const [game, setGame] = useState<Game | null>(null);
   const [players, setPlayers] = useState<Player[]>([]);
+  const [hostTeamName, setHostTeamName] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const autoJoinRef = useRef(false);
@@ -60,6 +61,7 @@ export function RecorderApp() {
       ]);
       setGame(room.game);
       setPlayers(room.players ?? []);
+      setHostTeamName(room.hostName || '');
       setJoined(true);
     } catch (e) {
       setError(e instanceof Error ? e.message : '加入失敗');
@@ -211,6 +213,7 @@ export function RecorderApp() {
             onSyncNow={pushNow}
             onSelectGame={() => {}}
             onUpdateGame={handleUpdateGame}
+            teamName={hostTeamName || '我方'}
           />
         ) : (
           <div className="p-8 text-center text-gray-500">

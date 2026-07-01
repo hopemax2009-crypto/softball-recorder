@@ -19,9 +19,28 @@ interface Props {
   onSelectHalf: (inning: number, half: HalfInning) => void;
   readOnlyOpponent?: boolean;
   readOnly?: boolean;
+  ourTeamName?: string;
+  opponentName?: string;
 }
 
-export function Scoreboard({ game, onUpdate, onSelectHalf, readOnlyOpponent, readOnly }: Props) {
+function TeamLabel({ name, className = '' }: { name: string; className?: string }) {
+  return (
+    <span className={`block truncate max-w-[4.5rem] mx-auto ${className}`} title={name}>
+      {name}
+    </span>
+  );
+}
+
+export function Scoreboard({
+  game,
+  onUpdate,
+  onSelectHalf,
+  readOnlyOpponent,
+  readOnly,
+  ourTeamName = '我方',
+  opponentName,
+}: Props) {
+  const oppName = opponentName ?? game.opponent ?? '對方';
   const noScoreEdit = readOnly || readOnlyOpponent;
   const [editing, setEditing] = useState<{ inning: number; half: HalfInning } | null>(null);
   const [inputRuns, setInputRuns] = useState('0');
@@ -171,15 +190,23 @@ export function Scoreboard({ game, onUpdate, onSelectHalf, readOnlyOpponent, rea
       <div className="flex justify-between items-center mb-2 text-sm">
         {game.isHomeTeam ? (
           <>
-            <span className="font-bold text-gray-700">對方 {totals.opponent}</span>
-            <span className="text-gray-500 text-xs">後攻（我方在下）</span>
-            <span className="font-bold text-field-green">我方 {totals.us}</span>
+            <span className="font-bold text-gray-700 truncate max-w-[30%]" title={oppName}>
+              {oppName} {totals.opponent}
+            </span>
+            <span className="text-gray-500 text-xs shrink-0">後攻</span>
+            <span className="font-bold text-field-green truncate max-w-[30%] text-right" title={ourTeamName}>
+              {totals.us} {ourTeamName}
+            </span>
           </>
         ) : (
           <>
-            <span className="font-bold text-field-green">我方 {totals.us}</span>
-            <span className="text-gray-500 text-xs">先攻（我方在上）</span>
-            <span className="font-bold text-gray-700">對方 {totals.opponent}</span>
+            <span className="font-bold text-field-green truncate max-w-[30%]" title={ourTeamName}>
+              {ourTeamName} {totals.us}
+            </span>
+            <span className="text-gray-500 text-xs shrink-0">先攻</span>
+            <span className="font-bold text-gray-700 truncate max-w-[30%] text-right" title={oppName}>
+              {totals.opponent} {oppName}
+            </span>
           </>
         )}
       </div>
@@ -197,14 +224,18 @@ export function Scoreboard({ game, onUpdate, onSelectHalf, readOnlyOpponent, rea
           {game.isHomeTeam ? (
             <>
               <tr>
-                <td className="font-medium text-gray-600 py-1 text-[10px]">對方</td>
+                <td className="font-medium text-gray-600 py-1 text-[10px]">
+                  <TeamLabel name={oppName} />
+                </td>
                 {innings.map((i) => (
                   <td key={i} className="p-0.5">{renderOppCell(i)}</td>
                 ))}
                 <td className="font-bold">{totals.opponent}</td>
               </tr>
               <tr>
-                <td className="font-medium text-field-green py-1 text-[10px]">我方</td>
+                <td className="font-medium text-field-green py-1 text-[10px]">
+                  <TeamLabel name={ourTeamName} />
+                </td>
                 {innings.map((i) => (
                   <td key={i} className="p-0.5">{renderOurCell(i)}</td>
                 ))}
@@ -214,14 +245,18 @@ export function Scoreboard({ game, onUpdate, onSelectHalf, readOnlyOpponent, rea
           ) : (
             <>
               <tr>
-                <td className="font-medium text-field-green py-1 text-[10px]">我方</td>
+                <td className="font-medium text-field-green py-1 text-[10px]">
+                  <TeamLabel name={ourTeamName} />
+                </td>
                 {innings.map((i) => (
                   <td key={i} className="p-0.5">{renderOurCell(i)}</td>
                 ))}
                 <td className="font-bold text-field-green">{totals.us}</td>
               </tr>
               <tr>
-                <td className="font-medium text-gray-600 py-1 text-[10px]">對方</td>
+                <td className="font-medium text-gray-600 py-1 text-[10px]">
+                  <TeamLabel name={oppName} />
+                </td>
                 {innings.map((i) => (
                   <td key={i} className="p-0.5">{renderOppCell(i)}</td>
                 ))}
@@ -234,13 +269,13 @@ export function Scoreboard({ game, onUpdate, onSelectHalf, readOnlyOpponent, rea
       <p className="text-[10px] text-gray-400 mt-2 text-center">
         {readOnly
           ? '比賽已完成 · 點擊局次可瀏覽紀錄'
-          : '3出局自動換局 · 對方進攻自動開啟得分面板 · 完成後跳至下一半局'}
+          : `3出局自動換局 · ${oppName}進攻自動開啟得分面板 · 完成後跳至下一半局`}
       </p>
 
       {editing && !noScoreEdit && (
         <div className="mt-3 p-3 bg-orange-50 rounded-xl border border-orange-200">
           <p className="text-sm font-medium text-center mb-3">
-            {getInningLabel(editing.inning, editing.half)} 對方得分
+            {getInningLabel(editing.inning, editing.half)} {oppName}得分
           </p>
           <div className="flex gap-2 items-center justify-center mb-3">
             <button

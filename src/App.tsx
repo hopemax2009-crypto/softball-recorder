@@ -171,6 +171,7 @@ function HostApp() {
             onSelectGame={handleSelectGame}
             onUpdateGame={handleUpdateGame}
             hasBottomNav
+            teamName={data.ownerName}
           />
         )}
         {tab === 'games' && (

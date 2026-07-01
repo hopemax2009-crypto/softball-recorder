@@ -1,4 +1,4 @@
-import type { AtBat, Game, HalfInning, OpponentScore } from '../types';
+import type { AtBat, Game, HalfInning, OpponentScore, Position } from '../types';
 import { OUT_RESULTS } from '../types';
 
 export function halfKey(inning: number, half: HalfInning): string {
@@ -53,6 +53,81 @@ export function setOpponentScore(
 
 export function touchLineup(game: Game, lineup: Game['lineup']): Game {
   return { ...game, lineup, lineupUpdatedAt: new Date().toISOString() };
+}
+
+export function getPlayerAtBattingOrder(game: Game, order: number): string | null {
+  const entry = (game.lineup ?? []).find((l) => l.isActive && l.battingOrder === order);
+  return entry?.playerId ?? null;
+}
+
+/** 指派球員至棒次（1–16），同一棒次與同一球員不可重複 */
+export function assignPlayerToBattingOrder(
+  game: Game,
+  order: number,
+  playerId: string | null
+): Game {
+  const lineup = (game.lineup ?? []).map((l) => ({ ...l }));
+
+  for (const l of lineup) {
+    if (l.isActive && l.battingOrder === order) {
+      l.isActive = false;
+    }
+  }
+
+  if (!playerId) {
+    return touchLineup(game, lineup);
+  }
+
+  for (const l of lineup) {
+    if (l.isActive && l.playerId === playerId) {
+      l.isActive = false;
+    }
+  }
+
+  const existing = lineup.find((l) => l.playerId === playerId);
+  if (existing) {
+    existing.battingOrder = order;
+    existing.isActive = true;
+    existing.position = existing.position || 'BN';
+  } else {
+    lineup.push({ playerId, battingOrder: order, position: 'BN', isActive: true });
+  }
+
+  return touchLineup(game, lineup);
+}
+
+/** 指派球員至守位，同一守位不可重複（僅限已上棒次球員） */
+export function assignPlayerToPosition(
+  game: Game,
+  position: Position,
+  playerId: string | null
+): Game {
+  if (position === 'BN') return game;
+  const lineup = (game.lineup ?? []).map((l) => ({ ...l }));
+
+  for (const l of lineup) {
+    if (l.isActive && l.position === position) {
+      l.position = 'BN';
+    }
+  }
+
+  if (!playerId) {
+    return touchLineup(game, lineup);
+  }
+
+  const existing = lineup.find((l) => l.playerId === playerId);
+  if (!existing?.isActive) {
+    return game;
+  }
+
+  for (const l of lineup) {
+    if (l.isActive && l.playerId !== playerId && l.position === position) {
+      l.position = 'BN';
+    }
+  }
+
+  existing.position = position;
+  return touchLineup(game, lineup);
 }
 
 export interface HalfInningStats {
