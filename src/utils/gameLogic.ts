@@ -113,6 +113,16 @@ export function getTeamTotals(game: Game): { us: number; opponent: number } {
   return { us, opponent };
 }
 
+/** 已完成比賽的勝負（需有得分紀錄才判定） */
+export function getGameOutcome(game: Game): 'win' | 'loss' | 'tie' | null {
+  if (!game.isCompleted) return null;
+  const { us, opponent } = getTeamTotals(game);
+  if (us === 0 && opponent === 0 && game.atBats.length === 0) return null;
+  if (us > opponent) return 'win';
+  if (us < opponent) return 'loss';
+  return 'tie';
+}
+
 export function getInningLabel(inning: number, half: HalfInning): string {
   return half === 'top' ? `${inning}局上` : `${inning}局下`;
 }

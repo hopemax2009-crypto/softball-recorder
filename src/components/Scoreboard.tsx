@@ -169,9 +169,19 @@ export function Scoreboard({ game, onUpdate, onSelectHalf, readOnlyOpponent, rea
   return (
     <Card className="!p-3 overflow-x-auto">
       <div className="flex justify-between items-center mb-2 text-sm">
-        <span className="font-bold text-field-green">我方 {totals.us}</span>
-        <span className="text-gray-500 text-xs">{game.isHomeTeam ? '後攻' : '先攻'}</span>
-        <span className="font-bold text-gray-700">{totals.opponent} 對方</span>
+        {game.isHomeTeam ? (
+          <>
+            <span className="font-bold text-gray-700">對方 {totals.opponent}</span>
+            <span className="text-gray-500 text-xs">後攻（我方在下）</span>
+            <span className="font-bold text-field-green">我方 {totals.us}</span>
+          </>
+        ) : (
+          <>
+            <span className="font-bold text-field-green">我方 {totals.us}</span>
+            <span className="text-gray-500 text-xs">先攻（我方在上）</span>
+            <span className="font-bold text-gray-700">對方 {totals.opponent}</span>
+          </>
+        )}
       </div>
       <table className="w-full text-center text-xs min-w-[260px]">
         <thead>
@@ -184,20 +194,41 @@ export function Scoreboard({ game, onUpdate, onSelectHalf, readOnlyOpponent, rea
           </tr>
         </thead>
         <tbody>
-          <tr>
-            <td className="font-medium text-field-green py-1 text-[10px]">我方</td>
-            {innings.map((i) => (
-              <td key={i} className="p-0.5">{renderOurCell(i)}</td>
-            ))}
-            <td className="font-bold text-field-green">{totals.us}</td>
-          </tr>
-          <tr>
-            <td className="font-medium text-gray-600 py-1 text-[10px]">對方</td>
-            {innings.map((i) => (
-              <td key={i} className="p-0.5">{renderOppCell(i)}</td>
-            ))}
-            <td className="font-bold">{totals.opponent}</td>
-          </tr>
+          {game.isHomeTeam ? (
+            <>
+              <tr>
+                <td className="font-medium text-gray-600 py-1 text-[10px]">對方</td>
+                {innings.map((i) => (
+                  <td key={i} className="p-0.5">{renderOppCell(i)}</td>
+                ))}
+                <td className="font-bold">{totals.opponent}</td>
+              </tr>
+              <tr>
+                <td className="font-medium text-field-green py-1 text-[10px]">我方</td>
+                {innings.map((i) => (
+                  <td key={i} className="p-0.5">{renderOurCell(i)}</td>
+                ))}
+                <td className="font-bold text-field-green">{totals.us}</td>
+              </tr>
+            </>
+          ) : (
+            <>
+              <tr>
+                <td className="font-medium text-field-green py-1 text-[10px]">我方</td>
+                {innings.map((i) => (
+                  <td key={i} className="p-0.5">{renderOurCell(i)}</td>
+                ))}
+                <td className="font-bold text-field-green">{totals.us}</td>
+              </tr>
+              <tr>
+                <td className="font-medium text-gray-600 py-1 text-[10px]">對方</td>
+                {innings.map((i) => (
+                  <td key={i} className="p-0.5">{renderOppCell(i)}</td>
+                ))}
+                <td className="font-bold">{totals.opponent}</td>
+              </tr>
+            </>
+          )}
         </tbody>
       </table>
       <p className="text-[10px] text-gray-400 mt-2 text-center">

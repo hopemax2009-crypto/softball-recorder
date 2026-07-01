@@ -6,6 +6,7 @@ import { isGameRecordDataEqual, isSameGameView } from '../utils/gameEquals';
 import { getRecorderParams } from '../utils/liveRoom';
 import { useLiveRoomSync } from '../hooks/useLiveRoomSync';
 import { RecordPanel } from './RecordPanel';
+import { PageHelpButton } from './PageHelpButton';
 import { Button, Card, EmptyState, Input } from './ui';
 
 const JOIN_TIMEOUT_MS = 15000;
@@ -122,7 +123,10 @@ export function RecorderApp() {
     const fromQr = !!(params?.roomId && params?.pin);
     return (
       <div className="min-h-screen bg-gradient-to-b from-field-green to-field-light p-4 flex items-center justify-center">
-        <Card className="w-full max-w-md space-y-4">
+        <Card className="w-full max-w-md space-y-4 relative">
+          <div className="absolute top-3 right-3">
+            <PageHelpButton pageId="recorder" className="!bg-field-green/20 !text-field-green hover:!bg-field-green/30" />
+          </div>
           <div className="text-center">
             <div className="text-5xl mb-2">📱</div>
             <h1 className="text-xl font-bold text-field-green">紀錄員模式</h1>
@@ -187,8 +191,11 @@ export function RecorderApp() {
               {recorderName || '紀錄模式'} · vs {game?.opponent ?? '比賽中'}
             </p>
           </div>
-          <div className="text-[10px] text-green-200 text-right">
-            {syncState.syncing ? '同步中' : syncState.connected ? '已連線' : '連線中'}
+          <div className="text-[10px] text-green-200 text-right flex items-center gap-2">
+            <div>
+              {syncState.syncing ? '同步中' : syncState.connected ? '已連線' : '連線中'}
+            </div>
+            <PageHelpButton pageId="recorder" />
           </div>
         </div>
       </header>

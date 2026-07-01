@@ -1,0 +1,48 @@
+import type { HelpContent } from '../data/helpContent';
+
+interface Props {
+  content: HelpContent;
+  onClose: () => void;
+}
+
+export function HelpModal({ content, onClose }: Props) {
+  return (
+    <>
+      <button
+        type="button"
+        aria-label="關閉說明"
+        className="fixed inset-0 z-[80] bg-black/40"
+        onClick={onClose}
+      />
+      <div className="fixed inset-x-4 top-[10dvh] z-[90] bg-white rounded-2xl shadow-2xl max-h-[80dvh] flex flex-col max-w-lg mx-auto">
+        <div className="flex-shrink-0 px-4 pt-4 pb-3 border-b border-gray-100 flex items-center justify-between">
+          <h2 className="font-bold text-lg text-field-green">{content.title}</h2>
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-9 h-9 rounded-full bg-gray-100 text-gray-600 font-bold"
+          >
+            ✕
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto overscroll-contain px-4 py-4 space-y-4">
+          {content.sections.map((section) => (
+            <div key={section.title}>
+              <h3 className="text-sm font-semibold text-gray-800 mb-2">{section.title}</h3>
+              <ul className="space-y-2">
+                {section.items.map((item, i) => (
+                  <li key={i} className="text-sm text-gray-600 leading-relaxed">
+                    {item.label && (
+                      <span className="font-medium text-field-green">{item.label}：</span>
+                    )}
+                    {item.text}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+      </div>
+    </>
+  );
+}

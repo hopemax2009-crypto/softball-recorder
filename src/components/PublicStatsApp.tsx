@@ -4,6 +4,7 @@ import { isFirebaseConfigured } from '../config/firebase';
 import { fetchPublicStats, subscribePublicStats } from '../services/publicStatsSync';
 import { normalizeTeamCode } from '../utils/teamStorage';
 import { StatsView } from './StatsView';
+import { PageHelpButton } from './PageHelpButton';
 import { Card, EmptyState } from './ui';
 
 interface Props {
@@ -79,12 +80,17 @@ export function PublicStatsApp({ teamCode }: Props) {
   return (
     <div className="min-h-screen bg-gray-50 pb-8">
       <header className="bg-field-green text-white px-4 py-4 shadow">
-        <p className="text-xs text-green-100">公開統計 · 唯讀</p>
-        <h1 className="text-xl font-bold">{snapshot.teamName}</h1>
-        <p className="text-xs text-green-100 mt-1">
-          隊伍代碼 {snapshot.teamCode} · 更新於{' '}
-          {new Date(snapshot.updatedAt).toLocaleString('zh-TW')}
-        </p>
+        <div className="max-w-lg mx-auto flex items-start justify-between gap-2">
+          <div>
+            <p className="text-xs text-green-100">公開統計 · 唯讀</p>
+            <h1 className="text-xl font-bold">{snapshot.teamName}</h1>
+            <p className="text-xs text-green-100 mt-1">
+              隊伍代碼 {snapshot.teamCode} · 更新於{' '}
+              {new Date(snapshot.updatedAt).toLocaleString('zh-TW')}
+            </p>
+          </div>
+          <PageHelpButton pageId="public-stats" />
+        </div>
       </header>
 
       <main className="p-4 space-y-4 max-w-lg mx-auto">

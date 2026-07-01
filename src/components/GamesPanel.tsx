@@ -3,7 +3,7 @@ import type { Game, Season } from '../types';
 import { isFirebaseConfigured } from '../config/firebase';
 import { createLiveRoom, closeLiveRoom, fetchLiveRoom, generatePin } from '../services/liveRoomSync';
 import { saveHostRoom, loadHostRoom, clearHostRoom } from '../utils/hostRoomStorage';
-import { hasActiveLineup } from '../utils/gameLogic';
+import { hasActiveLineup, getGameOutcome } from '../utils/gameLogic';
 import { QRShareModal } from './QRShareModal';
 import { Button, Card, EmptyState, Input, Select } from './ui';
 
@@ -338,13 +338,23 @@ export function GamesPanel({
             const season = seasons.find((s) => s.id === game.seasonId);
             const hasLive = !!game.liveRoomId;
             const completed = !!game.isCompleted;
+            const outcome = getGameOutcome(game);
             return (
               <Card key={game.id}>
                 <div className="flex items-start gap-3">
                   <button type="button" onClick={() => handleSelectGameClick(game)} className="flex-1 text-left min-h-[48px]">
                     <div className="font-semibold flex items-center gap-2 flex-wrap">
                       {game.opponent}
-                      {completed && (
+                      {outcome === 'win' && (
+                        <span className="text-xs font-bold bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">勝</span>
+                      )}
+                      {outcome === 'loss' && (
+                        <span className="text-xs font-bold bg-red-100 text-red-700 px-2 py-0.5 rounded-full">負</span>
+                      )}
+                      {outcome === 'tie' && (
+                        <span className="text-xs font-bold bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full">和</span>
+                      )}
+                      {completed && !outcome && (
                         <span className="text-[10px] bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full">已完成</span>
                       )}
                       {hasLive && (

@@ -15,6 +15,8 @@ import { PublicStatsApp } from './components/PublicStatsApp';
 import { getPublicStatsParams } from './utils/publicStats';
 import { PlayersPanel } from './components/PlayersPanel';
 import { SettingsPanel } from './components/SettingsPanel';
+import { PageHelpButton } from './components/PageHelpButton';
+import type { HelpPageId } from './data/helpContent';
 
 function HostApp() {
   const {
@@ -134,6 +136,8 @@ function HostApp() {
     settings: '設定',
   };
 
+  const helpPageId: HelpPageId = tab;
+
   return (
     <div className="min-h-screen pb-20">
       <header className="sticky top-0 z-40 bg-field-green text-white px-4 py-3 shadow-md">
@@ -142,13 +146,16 @@ function HostApp() {
             <h1 className="text-lg font-bold">⚾ 主控端</h1>
             <p className="text-xs text-green-200">{session.displayName}</p>
           </div>
-          <div className="text-xs text-green-200 text-right">
-            <div>{TITLES[tab]}</div>
-            {activeGame?.liveRoomId && (
-              <div className="text-[10px] opacity-80">
-                {syncState.syncing ? '同步中...' : syncState.connected ? '即時連線' : '連線中'}
-              </div>
-            )}
+          <div className="text-xs text-green-200 text-right flex items-center gap-2">
+            <div>
+              <div>{TITLES[tab]}</div>
+              {activeGame?.liveRoomId && (
+                <div className="text-[10px] opacity-80">
+                  {syncState.syncing ? '同步中...' : syncState.connected ? '即時連線' : '連線中'}
+                </div>
+              )}
+            </div>
+            <PageHelpButton pageId={helpPageId} />
           </div>
         </div>
       </header>
