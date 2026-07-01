@@ -1,4 +1,4 @@
-import type { AtBat, AtBatResult, BattingStats, Game, Player } from '../types';
+import type { AtBat, AtBatResult, BattingStats, Game, PitcherGameLog, PitcherStats, Player } from '../types';
 
 const HIT_RESULTS: AtBatResult[] = ['1B', '2B', '3B', 'HR'];
 const AB_EXCLUDE: AtBatResult[] = ['BB', 'HBP', 'SF'];
@@ -284,4 +284,135 @@ export function summarizeAtBat(atBat: AtBat, playerName: string): string {
   const label = getResultLabel(atBat.result);
   const rbiText = atBat.rbi > 0 ? ` ${atBat.rbi}分打點` : '';
   return `${playerName}：${label}${rbiText}`;
+}
+
+/** 統計投手失分（對手每得 1 分時紀錄的投手 P） */
+export function calculatePitcherRunsAllowed(
+  playerId: string,
+  games: Game[],
+  seasonId?: string
+): number {
+  const filteredGames = seasonId
+    ? games.filter((g) => g.seasonId === seasonId)
+    : games;
+
+  let runs = 0;
+  for (const game of filteredGames) {
+    for (const score of game.opponentScores ?? []) {
+      for (const run of score.pitcherRuns ?? []) {
+        if (run.pitcherId === playerId) runs++;
+      }
+    }
+  }
+  return runs;
+}
+
+function filterGamesBySeason(games: Game[], seasonId?: string): Game[] {
+  return seasonId ? games.filter((g) => g.seasonId === seasonId) : games;
+}
+
+export function calculatePitcherStats(
+  player: Player,
+  games: Game[],
+  seasonId?: string
+): PitcherStats | null {
+  const filteredGames = filterGamesBySeason(games, seasonId);
+  const gameIds = new Set<string>();
+  const halfKeys = new Set<string>();
+  let runsAllowed = 0;
+
+  for (const game of filteredGames) {
+    const wasP = (game.lineup ?? []).some(
+      (l) => l.isActive && l.playerId === player.id && l.position === 'P'
+    );
+    const hasOpponentRuns = (game.opponentScores ?? []).some((s) => s.runs > 0);
+
+    if (wasP && hasOpponentRuns) {
+      gameIds.add(game.id);
+    }
+
+    for (const score of game.opponentScores ?? []) {
+      let hasRunInHalf = false;
+      for (const run of score.pitcherRuns ?? []) {
+        if (run.pitcherId === player.id) {
+          runsAllowed++;
+          gameIds.add(game.id);
+          hasRunInHalf = true;
+        }
+      }
+      if (hasRunInHalf) {
+        halfKeys.add(`${game.id}-${score.inning}-${score.half}`);
+      }
+    }
+  }
+
+  if (gameIds.size === 0 && runsAllowed === 0) return null;
+
+  const halfInnings = halfKeys.size;
+  const gamesCount = gameIds.size;
+  const era =
+    halfInnings > 0 ? formatRate((runsAllowed * 7) / halfInnings) : null;
+
+  return {
+    playerId: player.id,
+    playerName: player.name,
+    games: gamesCount,
+    runsAllowed,
+    halfInnings,
+    era,
+    runsPerGame: gamesCount > 0 ? formatRate(runsAllowed / gamesCount) : 0,
+  };
+}
+
+export function calculateAllPitcherStats(
+  players: Player[],
+  games: Game[],
+  seasonId?: string
+): PitcherStats[] {
+  return players
+    .map((p) => calculatePitcherStats(p, games, seasonId))
+    .filter((s): s is PitcherStats => s != null)
+    .sort((a, b) => a.runsAllowed - b.runsAllowed || b.games - a.games);
+}
+
+export function getPitcherGameLogs(
+  playerId: string,
+  games: Game[],
+  seasonId?: string
+): PitcherGameLog[] {
+  const filteredGames = filterGamesBySeason(games, seasonId);
+  const logs: PitcherGameLog[] = [];
+
+  for (const game of filteredGames) {
+    let runs = 0;
+    const halfSet = new Set<string>();
+    for (const score of game.opponentScores ?? []) {
+      let inHalf = false;
+      for (const run of score.pitcherRuns ?? []) {
+        if (run.pitcherId === playerId) {
+          runs++;
+          inHalf = true;
+        }
+      }
+      if (inHalf) {
+        halfSet.add(`${score.inning}-${score.half}`);
+      }
+    }
+    if (runs > 0) {
+      logs.push({
+        gameId: game.id,
+        date: game.date,
+        opponent: game.opponent,
+        runsAllowed: runs,
+        halfInnings: halfSet.size,
+      });
+    }
+  }
+
+  return logs.sort((a, b) => b.date.localeCompare(a.date));
+}
+
+export function formatEra(value: number | null): string {
+  if (value == null || !Number.isFinite(value)) return '—';
+  return value.toFixed(2);
 }

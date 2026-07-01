@@ -92,10 +92,17 @@ export interface LineupEntry {
   isActive: boolean;
 }
 
+export interface OpponentRunAttribution {
+  /** 該分失分時的投手（守位 P） */
+  pitcherId?: string;
+}
+
 export interface OpponentScore {
   inning: number;
   half: HalfInning;
   runs: number;
+  /** 逐分失分投手紀錄，長度應與 runs 一致 */
+  pitcherRuns?: OpponentRunAttribution[];
   updatedAt?: string;
 }
 
@@ -222,6 +229,29 @@ export interface BattingStats {
   woba: number;
   /** 進攻貢獻分：(球員wOBA/全隊平均wOBA)×100 */
   wobaPlus: number;
+}
+
+export interface PitcherStats {
+  playerId: string;
+  playerName: string;
+  /** 曾擔任投手（P）或有失分紀錄的場次 */
+  games: number;
+  /** 失分（對手得分時紀錄的投手失分） */
+  runsAllowed: number;
+  /** 有失分紀錄的半局數（估算投球局數用） */
+  halfInnings: number;
+  /** 防禦率：(失分×7)÷半局數，7局制估算 */
+  era: number | null;
+  /** 場均失分 */
+  runsPerGame: number;
+}
+
+export interface PitcherGameLog {
+  gameId: string;
+  date: string;
+  opponent: string;
+  runsAllowed: number;
+  halfInnings: number;
 }
 
 export interface GitHubConfig {

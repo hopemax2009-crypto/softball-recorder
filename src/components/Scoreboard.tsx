@@ -1,20 +1,25 @@
 import { useEffect, useRef, useState } from 'react';
-import type { Game, HalfInning } from '../types';
+import type { Game, HalfInning, Player } from '../types';
 import {
+  addOpponentRun,
   getAtBatsForHalf,
+  getCurrentPitcherId,
   getHalfInningStats,
   getInningLabel,
   getNextHalf,
   getOpponentScore,
+  getOpponentScoreEntry,
   getTeamTotals,
   isHalfComplete,
   isOurBattingHalf,
-  setOpponentScore,
+  removeOpponentRun,
+  setOpponentScoreWithPitcher,
 } from '../utils/gameLogic';
 import { Card } from './ui';
 
 interface Props {
   game: Game;
+  players?: Player[];
   onUpdate: (game: Game) => void;
   onSelectHalf: (inning: number, half: HalfInning) => void;
   readOnlyOpponent?: boolean;
@@ -33,6 +38,7 @@ function TeamLabel({ name, className = '' }: { name: string; className?: string 
 
 export function Scoreboard({
   game,
+  players = [],
   onUpdate,
   onSelectHalf,
   readOnlyOpponent,
@@ -104,17 +110,32 @@ export function Scoreboard({
     const now = new Date().toISOString();
     onUpdate({
       ...game,
-      opponentScores: setOpponentScore(opponentScores, inning, half, Math.max(0, runs)),
+      opponentScores: setOpponentScoreWithPitcher(
+        opponentScores,
+        inning,
+        half,
+        runs,
+        getCurrentPitcherId(game)
+      ),
       syncUpdatedAt: now,
     });
   };
 
   const adjustOpponentScore = (delta: number) => {
     if (!editing) return;
-    const existing = getOpponentScore(opponentScores, editing.inning, editing.half) ?? 0;
-    const runs = Math.max(0, existing + delta);
+    const now = new Date().toISOString();
+    const pitcherId = getCurrentPitcherId(game);
+    const nextScores =
+      delta > 0
+        ? addOpponentRun(opponentScores, editing.inning, editing.half, pitcherId)
+        : removeOpponentRun(opponentScores, editing.inning, editing.half);
+    const runs = getOpponentScore(nextScores, editing.inning, editing.half) ?? 0;
     setInputRuns(String(runs));
-    saveOpponentRuns(editing.inning, editing.half, runs);
+    onUpdate({
+      ...game,
+      opponentScores: nextScores,
+      syncUpdatedAt: now,
+    });
   };
 
   const finishOpponentScore = () => {
@@ -124,13 +145,27 @@ export function Scoreboard({
     const next = getNextHalf(editing.inning, editing.half);
     onUpdate({
       ...game,
-      opponentScores: setOpponentScore(opponentScores, editing.inning, editing.half, runs),
+      opponentScores: setOpponentScoreWithPitcher(
+        opponentScores,
+        editing.inning,
+        editing.half,
+        runs,
+        getCurrentPitcherId(game)
+      ),
       currentInning: next.inning,
       currentHalf: next.half,
       syncUpdatedAt: now,
     });
     setEditing(null);
   };
+
+  const currentPitcherId = getCurrentPitcherId(game);
+  const currentPitcher = currentPitcherId
+    ? players.find((p) => p.id === currentPitcherId)
+    : null;
+  const editingScoreEntry = editing
+    ? getOpponentScoreEntry(opponentScores, editing.inning, editing.half)
+    : undefined;
 
   const isActiveCell = (inning: number, half: HalfInning) =>
     game.currentInning === inning && game.currentHalf === half;
@@ -274,8 +309,19 @@ export function Scoreboard({
 
       {editing && !noScoreEdit && (
         <div className="mt-3 p-3 bg-orange-50 rounded-xl border border-orange-200">
-          <p className="text-sm font-medium text-center mb-3">
+          <p className="text-sm font-medium text-center mb-1">
             {getInningLabel(editing.inning, editing.half)} {oppName}得分
+          </p>
+          <p className="text-xs text-center mb-3">
+            目前投手：
+            {currentPitcher ? (
+              <span className="font-semibold text-orange-800">
+                {currentPitcher.number ? `#${currentPitcher.number} ` : ''}
+                {currentPitcher.name}
+              </span>
+            ) : (
+              <span className="text-orange-600">未指派（± 得分時無法紀錄投手）</span>
+            )}
           </p>
           <div className="flex gap-2 items-center justify-center mb-3">
             <button
@@ -301,6 +347,23 @@ export function Scoreboard({
               +
             </button>
           </div>
+          {editingScoreEntry && (editingScoreEntry.pitcherRuns?.length ?? 0) > 0 && (
+            <p className="text-[10px] text-gray-500 text-center mb-3 leading-relaxed">
+              失分投手：
+              {editingScoreEntry.pitcherRuns!.map((run, i) => {
+                const p = run.pitcherId ? players.find((pl) => pl.id === run.pitcherId) : null;
+                const label = p
+                  ? `${p.number ? `#${p.number}` : ''}${p.name}`.trim()
+                  : '未記錄';
+                return (
+                  <span key={i}>
+                    {i > 0 ? '、' : ''}
+                    {i + 1}分→{label}
+                  </span>
+                );
+              })}
+            </p>
+          )}
           <div className="flex gap-2">
             <button
               type="button"

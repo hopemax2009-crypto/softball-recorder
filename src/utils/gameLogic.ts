@@ -1,5 +1,5 @@
 import type { AtBat, Game, HalfInning, OpponentScore, Position } from '../types';
-import { OUT_RESULTS } from '../types';
+import { BATTING_ORDERS, OUT_RESULTS } from '../types';
 
 export function halfKey(inning: number, half: HalfInning): string {
   return `${inning}-${half}`;
@@ -41,14 +41,118 @@ export function getOpponentScore(
   return found ? found.runs : null;
 }
 
+export function getOpponentScoreEntry(
+  scores: OpponentScore[],
+  inning: number,
+  half: HalfInning
+): OpponentScore | undefined {
+  return scores.find((s) => s.inning === inning && s.half === half);
+}
+
+function replaceOpponentScoreEntry(
+  scores: OpponentScore[],
+  entry: OpponentScore
+): OpponentScore[] {
+  const filtered = scores.filter(
+    (s) => !(s.inning === entry.inning && s.half === entry.half)
+  );
+  if (entry.runs <= 0) return filtered;
+  return [...filtered, entry];
+}
+
+/** 對手 +1 分，並記錄當下投手 */
+export function addOpponentRun(
+  scores: OpponentScore[],
+  inning: number,
+  half: HalfInning,
+  pitcherId: string | null
+): OpponentScore[] {
+  const existing = getOpponentScoreEntry(scores, inning, half);
+  const pitcherRuns = [...(existing?.pitcherRuns ?? [])];
+  pitcherRuns.push(pitcherId ? { pitcherId } : {});
+  return replaceOpponentScoreEntry(scores, {
+    inning,
+    half,
+    runs: (existing?.runs ?? 0) + 1,
+    pitcherRuns,
+    updatedAt: new Date().toISOString(),
+  });
+}
+
+/** 對手 -1 分，並移除最後一筆失分投手紀錄 */
+export function removeOpponentRun(
+  scores: OpponentScore[],
+  inning: number,
+  half: HalfInning
+): OpponentScore[] {
+  const existing = getOpponentScoreEntry(scores, inning, half);
+  if (!existing || existing.runs <= 0) return scores;
+  const pitcherRuns = (existing.pitcherRuns ?? []).slice(0, -1);
+  return replaceOpponentScoreEntry(scores, {
+    inning,
+    half,
+    runs: existing.runs - 1,
+    pitcherRuns,
+    updatedAt: new Date().toISOString(),
+  });
+}
+
+/** 手動設定對方得分；增加的分數以當下投手紀錄 */
+export function setOpponentScoreWithPitcher(
+  scores: OpponentScore[],
+  inning: number,
+  half: HalfInning,
+  runs: number,
+  pitcherIdForNewRuns: string | null
+): OpponentScore[] {
+  const target = Math.max(0, runs);
+  const existing = getOpponentScoreEntry(scores, inning, half);
+  const currentRuns = existing?.runs ?? 0;
+  let pitcherRuns = [...(existing?.pitcherRuns ?? [])];
+
+  if (target > currentRuns) {
+    for (let i = 0; i < target - currentRuns; i++) {
+      pitcherRuns.push(pitcherIdForNewRuns ? { pitcherId: pitcherIdForNewRuns } : {});
+    }
+  } else if (target < currentRuns) {
+    pitcherRuns = pitcherRuns.slice(0, target);
+  }
+
+  if (target === 0) {
+    return scores.filter((s) => !(s.inning === inning && s.half === half));
+  }
+
+  return replaceOpponentScoreEntry(scores, {
+    inning,
+    half,
+    runs: target,
+    pitcherRuns,
+    updatedAt: new Date().toISOString(),
+  });
+}
+
 export function setOpponentScore(
   scores: OpponentScore[],
   inning: number,
   half: HalfInning,
   runs: number
 ): OpponentScore[] {
-  const filtered = scores.filter((s) => !(s.inning === inning && s.half === half));
-  return [...filtered, { inning, half, runs, updatedAt: new Date().toISOString() }];
+  const target = Math.max(0, runs);
+  const existing = getOpponentScoreEntry(scores, inning, half);
+  if (target === 0) {
+    return scores.filter((s) => !(s.inning === inning && s.half === half));
+  }
+  let pitcherRuns = existing?.pitcherRuns ?? [];
+  if (pitcherRuns.length > target) {
+    pitcherRuns = pitcherRuns.slice(0, target);
+  }
+  return replaceOpponentScoreEntry(scores, {
+    inning,
+    half,
+    runs: target,
+    pitcherRuns: pitcherRuns.length > 0 ? pitcherRuns : undefined,
+    updatedAt: new Date().toISOString(),
+  });
 }
 
 export function touchLineup(game: Game, lineup: Game['lineup']): Game {
@@ -58,6 +162,40 @@ export function touchLineup(game: Game, lineup: Game['lineup']): Game {
 export function getPlayerAtBattingOrder(game: Game, order: number): string | null {
   const entry = (game.lineup ?? []).find((l) => l.isActive && l.battingOrder === order);
   return entry?.playerId ?? null;
+}
+
+export function getNextAvailableBattingOrder(game: Game): number | null {
+  for (const order of BATTING_ORDERS) {
+    if (!getPlayerAtBattingOrder(game, order)) return order;
+  }
+  return null;
+}
+
+export function getLineupEntryForPlayer(game: Game, playerId: string) {
+  return (game.lineup ?? []).find((l) => l.playerId === playerId && l.isActive);
+}
+
+export const FIELD_POSITIONS: Position[] = [
+  'P', 'C', '1B', '2B', '3B', 'SS', 'LF', 'CF', 'RF', 'FLEX',
+];
+
+export const BATTING_ONLY_POSITIONS: Position[] = ['DH', 'EP'];
+
+export function isFieldPosition(position: Position): boolean {
+  return FIELD_POSITIONS.includes(position);
+}
+
+export function isBattingOnlyPosition(position: Position): boolean {
+  return BATTING_ONLY_POSITIONS.includes(position);
+}
+
+export function getPlayerAtPosition(game: Game, position: Position): string | null {
+  const entry = (game.lineup ?? []).find((l) => l.isActive && l.position === position);
+  return entry?.playerId ?? null;
+}
+
+export function getCurrentPitcherId(game: Game): string | null {
+  return getPlayerAtPosition(game, 'P');
 }
 
 /** 指派球員至棒次（1–16），同一棒次與同一球員不可重複 */
@@ -96,13 +234,13 @@ export function assignPlayerToBattingOrder(
   return touchLineup(game, lineup);
 }
 
-/** 指派球員至守位，同一守位不可重複（僅限已上棒次球員） */
+/** 指派球員至守位，同一守位不可重複（僅限已上棒次球員；DH/EP 請用棒次頁設定） */
 export function assignPlayerToPosition(
   game: Game,
   position: Position,
   playerId: string | null
 ): Game {
-  if (position === 'BN') return game;
+  if (position === 'BN' || isBattingOnlyPosition(position)) return game;
   const lineup = (game.lineup ?? []).map((l) => ({ ...l }));
 
   for (const l of lineup) {
@@ -127,6 +265,112 @@ export function assignPlayerToPosition(
   }
 
   existing.position = position;
+  return touchLineup(game, lineup);
+}
+
+/** 指派守位並一併排定棒次（新進先發球員須指定棒次；已在打序者僅更新守位） */
+export function assignPlayerToPositionAndOrder(
+  game: Game,
+  position: Position,
+  playerId: string | null,
+  battingOrder?: number
+): Game {
+  if (position === 'BN') return game;
+  if (!playerId) {
+    return assignPlayerToPosition(game, position, null);
+  }
+
+  if (getLineupEntryForPlayer(game, playerId)) {
+    return assignPlayerToPosition(game, position, playerId);
+  }
+
+  if (battingOrder == null) return game;
+
+  const withOrder = assignPlayerToBattingOrder(game, battingOrder, playerId);
+  return assignPlayerToPosition(withOrder, position, playerId);
+}
+
+function assignPlayerToBattingOnlyRole(
+  game: Game,
+  order: number,
+  playerId: string,
+  role: 'DH' | 'EP'
+): Game {
+  const withOrder = assignPlayerToBattingOrder(game, order, playerId);
+  const lineup = (withOrder.lineup ?? []).map((l) => ({ ...l }));
+
+  for (const l of lineup) {
+    if (l.isActive && l.position === role && l.playerId !== playerId) {
+      l.position = 'BN';
+    }
+  }
+
+  const entry = lineup.find((l) => l.playerId === playerId && l.isActive);
+  if (entry) {
+    entry.position = role;
+  }
+
+  return touchLineup(withOrder, lineup);
+}
+
+/** 棒次頁：指派球員至棒次並一併設定守位 / DH / EP / 僅棒次 */
+export function assignPlayerToBattingOrderWithPosition(
+  game: Game,
+  order: number,
+  playerId: string | null,
+  position: Position = 'BN'
+): Game {
+  if (!playerId) {
+    return assignPlayerToBattingOrder(game, order, null);
+  }
+
+  if (position === 'BN') {
+    const withOrder = assignPlayerToBattingOrder(game, order, playerId);
+    const lineup = (withOrder.lineup ?? []).map((l) => ({ ...l }));
+    const entry = lineup.find((l) => l.playerId === playerId && l.isActive);
+    if (entry) {
+      entry.position = 'BN';
+    }
+    return touchLineup(withOrder, lineup);
+  }
+
+  if (position === 'DH' || position === 'EP') {
+    return assignPlayerToBattingOnlyRole(game, order, playerId, position);
+  }
+
+  const withOrder = assignPlayerToBattingOrder(game, order, playerId);
+  return assignPlayerToPosition(withOrder, position, playerId);
+}
+
+/** 代打：新球員接替棒次並一併接手原球員守位，原球員退出先發 */
+export function substitutePlayerInLineup(
+  game: Game,
+  order: number,
+  newPlayerId: string
+): Game {
+  const lineup = (game.lineup ?? []).map((l) => ({ ...l }));
+  const currentEntry = lineup.find((l) => l.isActive && l.battingOrder === order);
+  const position = currentEntry?.position ?? 'BN';
+
+  if (currentEntry) {
+    currentEntry.isActive = false;
+  }
+
+  for (const l of lineup) {
+    if (l.isActive && l.playerId === newPlayerId) {
+      l.isActive = false;
+    }
+  }
+
+  const existing = lineup.find((l) => l.playerId === newPlayerId);
+  if (existing) {
+    existing.battingOrder = order;
+    existing.isActive = true;
+    existing.position = position;
+  } else {
+    lineup.push({ playerId: newPlayerId, battingOrder: order, position, isActive: true });
+  }
+
   return touchLineup(game, lineup);
 }
 

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { v4 as uuid } from 'uuid';
-import type { AtBat, AtBatResult, Game, HalfInning, Player, RecordSubTab } from '../types';
-import { AT_BAT_RESULTS, getDefaultOutsForResult } from '../types';
+import type { AtBat, AtBatResult, Game, HalfInning, LineupEntry, Player, Position, RecordSubTab } from '../types';
+import { AT_BAT_RESULTS, getDefaultOutsForResult, POSITIONS } from '../types';
 import {
   applyGameAfterAtBatChange,
   getAtBatsForHalf,
@@ -11,15 +11,34 @@ import {
   hasActiveLineup,
   isHalfComplete,
   isOurBattingHalf,
+  substitutePlayerInLineup,
 } from '../utils/gameLogic';
 import { getResultLabel } from '../utils/stats';
 import { isGameRecordDataEqual } from '../utils/gameEquals';
 import type { LiveSyncState } from '../hooks/useLiveRoomSync';
 import type { SharedSyncState } from '../hooks/useSharedGameSync';
 import { LineupPanel } from './LineupPanel';
+import { PlayerPickerSheet } from './PlayerPickerSheet';
 import { PositionPanel } from './PositionPanel';
 import { Scoreboard } from './Scoreboard';
 import { Button, Card, EmptyState } from './ui';
+
+function positionLabel(pos: Position): string {
+  return POSITIONS.find((p) => p.value === pos)?.label.split(' ').pop() ?? pos;
+}
+
+function getResultShort(result: AtBatResult): string {
+  return AT_BAT_RESULTS.find((r) => r.value === result)?.short ?? result;
+}
+
+function formatGameAtBatSummary(atBats: AtBat[]): string {
+  return atBats
+    .map((a) => {
+      const short = getResultShort(a.result);
+      return a.rbi > 0 ? `${short}+${a.rbi}` : short;
+    })
+    .join('、');
+}
 
 const RESULT_COLORS: Record<string, string> = {
   '1B': 'bg-green-100 text-green-800',
@@ -296,6 +315,7 @@ export function RecordPanel({
   const [editRbi, setEditRbi] = useState(0);
   const [editOuts, setEditOuts] = useState(0);
   const [lineupPage, setLineupPage] = useState(0);
+  const [pinchHitTarget, setPinchHitTarget] = useState<LineupEntry | null>(null);
 
   const recentGames = [...games].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 10);
 
@@ -311,24 +331,35 @@ export function RecordPanel({
 
   useEffect(() => {
     if (!activeGame || recorderMode) return;
-    setSubTab(hasActiveLineup(activeGame) ? 'record' : 'lineup');
+    setSubTab(hasActiveLineup(activeGame) ? 'record' : 'positions');
   }, [activeGame?.id, recorderMode]);
 
   const currentBatterIdx = activeLineup.findIndex((e) => e.playerId === selectedPlayer);
-  const lineupPageCount = activeLineup.length > 0 ? Math.ceil(activeLineup.length / 4) : 1;
+  const currentEntry = currentBatterIdx >= 0 ? activeLineup[currentBatterIdx] : null;
+  const nextThreeEntries =
+    currentBatterIdx >= 0 && activeLineup.length > 1
+      ? Array.from({ length: Math.min(3, activeLineup.length - 1) }, (_, i) =>
+          activeLineup[(currentBatterIdx + 1 + i) % activeLineup.length]
+        )
+      : [];
+  const excludedPlayerIds = new Set([
+    ...(currentEntry ? [currentEntry.playerId] : []),
+    ...nextThreeEntries.map((e) => e.playerId),
+  ]);
+  const otherLineupEntries = activeLineup.filter((e) => !excludedPlayerIds.has(e.playerId));
+  const browseLineupPageCount =
+    activeLineup.length > 0 ? Math.max(1, Math.ceil(activeLineup.length / 3)) : 1;
+  const otherLineupPageCount =
+    otherLineupEntries.length > 0 ? Math.ceil(otherLineupEntries.length / 3) : 0;
+  const pagedBrowseEntries =
+    activeLineup.length === 0
+      ? []
+      : activeLineup.slice(lineupPage * 3, lineupPage * 3 + 3);
+  const pagedOtherEntries = otherLineupEntries.slice(lineupPage * 3, lineupPage * 3 + 3);
 
   useEffect(() => {
     setLineupPage(0);
   }, [selectedPlayer, activeGame?.id, activeGame?.currentInning, activeGame?.currentHalf]);
-
-  const visibleLineupEntries =
-    activeLineup.length === 0
-      ? []
-      : Array.from({ length: Math.min(4, activeLineup.length) }, (_, i) => {
-          const base = currentBatterIdx >= 0 ? currentBatterIdx : 0;
-          const idx = (base + lineupPage * 4 + i) % activeLineup.length;
-          return activeLineup[idx];
-        });
 
   const currentHalfAtBats = activeGame
     ? getAtBatsForHalf(activeGame, activeGame.currentInning, activeGame.currentHalf)
@@ -380,6 +411,116 @@ export function RecordPanel({
     setPendingRbi(0);
     setPendingOuts(0);
   };
+
+  const canSubstitute = !isReadOnly && !!activeGame && activeLineup.length > 0;
+
+  const handlePinchHitSelect = (newPlayerId: string | null) => {
+    if (!pinchHitTarget || !activeGame || !newPlayerId) {
+      setPinchHitTarget(null);
+      return;
+    }
+    const updated = substitutePlayerInLineup(
+      activeGame,
+      pinchHitTarget.battingOrder,
+      newPlayerId
+    );
+    guardedUpdate(updated);
+    if (selectedPlayer === pinchHitTarget.playerId) {
+      setSelectedPlayer(newPlayerId);
+    }
+    setPinchHitTarget(null);
+  };
+
+  const renderLineupMeta = (player: Player | undefined, entry: LineupEntry) => (
+    <div className="flex items-center gap-2 flex-wrap">
+      {player?.number && (
+        <span className="text-xs font-bold text-sky-600">#{player.number}</span>
+      )}
+      {entry.position !== 'BN' && (
+        <span className="text-xs font-semibold text-amber-600">{positionLabel(entry.position)}</span>
+      )}
+    </div>
+  );
+
+  const renderLineupRow = (
+    entry: LineupEntry,
+    mode: 'current' | 'upcoming' | 'browse'
+  ) => {
+    const player = players.find((p) => p.id === entry.playerId);
+    const isLastOut = lastOutId === entry.playerId;
+    const gameAtBats = activeGame
+      ? activeGame.atBats.filter((a) => a.playerId === entry.playerId)
+      : [];
+    const gameAtBatSummary = formatGameAtBatSummary(gameAtBats);
+    const cardBody = (
+      <>
+        <span
+          className={`font-bold text-field-green shrink-0 ${mode === 'current' ? 'text-2xl w-8' : 'text-xl w-7'}`}
+        >
+          {entry.battingOrder}
+        </span>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-baseline gap-2 min-w-0">
+            <p className={`font-bold shrink-0 ${mode === 'current' ? 'text-lg' : 'text-base'}`}>
+              {player?.name}
+            </p>
+            {gameAtBatSummary && (
+              <span className="text-xs text-gray-400 truncate min-w-0">{gameAtBatSummary}</span>
+            )}
+          </div>
+          {renderLineupMeta(player, entry)}
+        </div>
+        {mode === 'current' && (
+          <span className="text-xs bg-field-green text-white px-2.5 py-1 rounded-full shrink-0">
+            打擊
+          </span>
+        )}
+        {isLastOut && (
+          <span className="text-xs bg-red-500 text-white px-2 py-1 rounded-full shrink-0">出局</span>
+        )}
+        {mode === 'current' && canRecord && (
+          <span className="text-gray-300 shrink-0">›</span>
+        )}
+      </>
+    );
+
+    return (
+      <div key={entry.playerId} className="flex items-stretch gap-2">
+        {canSubstitute && (
+          <button
+            type="button"
+            onClick={() => setPinchHitTarget(entry)}
+            className="w-10 shrink-0 rounded-xl border-2 border-amber-300 bg-amber-50 text-amber-700 text-[10px] font-bold leading-tight flex flex-col items-center justify-center active:opacity-70"
+            aria-label={`${entry.battingOrder}棒代打置換`}
+          >
+            代打
+          </button>
+        )}
+        {mode === 'current' ? (
+          <button
+            type="button"
+            onClick={() => openRecordForPlayer(entry.playerId)}
+            disabled={!canRecord}
+            className={`flex-1 flex items-center gap-3 rounded-xl px-4 py-3 border-2 text-left border-field-green bg-green-50 ${
+              isLastOut ? 'ring-2 ring-red-400' : ''
+            } ${!canRecord ? 'opacity-60' : 'active:opacity-90'}`}
+          >
+            {cardBody}
+          </button>
+        ) : (
+          <div
+            className={`flex-1 flex items-center gap-3 rounded-xl px-4 py-3 border-2 border-gray-200 bg-white ${
+              isLastOut ? 'ring-2 ring-red-400' : ''
+            } ${mode === 'browse' && selectedPlayer === entry.playerId ? 'border-field-green/50 bg-green-50/50' : ''}`}
+          >
+            {cardBody}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const lineupPaginationCount = canRecord ? otherLineupPageCount : browseLineupPageCount;
 
   const openEditForAtBat = (atBat: AtBat) => {
     if (isReadOnly) return;
@@ -492,8 +633,8 @@ export function RecordPanel({
       <div className="p-4">
         <EmptyState
           icon="👥"
-          title={recorderMode ? '等待主控端設定棒次' : '尚無球員'}
-          description={recorderMode ? '請主控端在「棒次」分頁設定打序' : '請先到「球員」頁面新增球員'}
+          title={recorderMode ? '等待主控端設定先發' : '尚無球員'}
+          description={recorderMode ? '請主控端在「守位」分頁排定先發' : '請先到「球員」頁面新增球員'}
         />
         {!recorderMode && (
           <Button variant="secondary" onClick={() => onSelectGame(null)} className="w-full mt-4">返回</Button>
@@ -504,7 +645,7 @@ export function RecordPanel({
 
   const showSync = (activeGame.isShared || activeGame.liveRoomId) && syncState;
   const isLiveSync = syncState && 'connected' in syncState;
-  const subTabs: RecordSubTab[] = recorderMode ? ['record', 'positions'] : ['record', 'lineup', 'positions'];
+  const subTabs: RecordSubTab[] = recorderMode ? ['record', 'positions'] : ['record', 'positions', 'lineup'];
 
   return (
     <div className="p-3 space-y-3">
@@ -526,6 +667,7 @@ export function RecordPanel({
 
       <Scoreboard
         game={activeGame}
+        players={players}
         onUpdate={guardedUpdate}
         onSelectHalf={handleSelectHalf}
         readOnly={isReadOnly}
@@ -559,34 +701,47 @@ export function RecordPanel({
       )}
 
       <div className="flex gap-1 bg-gray-100 rounded-xl p-1">
-        {subTabs.map((t) => (
-          <button
-            key={t}
-            onClick={() => setSubTab(t)}
-            className={`flex-1 py-2 rounded-lg text-xs font-medium ${
-              subTab === t ? 'bg-white shadow text-field-green' : 'text-gray-500'
-            }`}
-          >
-            {t === 'record' ? '紀錄' : t === 'lineup' ? '棒次' : '守位'}
-          </button>
-        ))}
+        {subTabs.map((t) => {
+          const isActive = subTab === t;
+          const tabClass =
+            t === 'positions'
+              ? isActive
+                ? 'bg-sky-100 shadow text-sky-800'
+                : 'text-sky-600/80'
+              : t === 'lineup'
+                ? isActive
+                  ? 'bg-amber-100 shadow text-amber-900'
+                  : 'text-amber-700/80'
+                : isActive
+                  ? 'bg-white shadow text-field-green'
+                  : 'text-gray-500';
+          return (
+            <button
+              key={t}
+              onClick={() => setSubTab(t)}
+              className={`flex-1 py-2 rounded-lg text-xs font-medium ${tabClass}`}
+            >
+              {t === 'record' ? '紀錄' : t === 'lineup' ? '棒次' : '守位'}
+            </button>
+          );
+        })}
       </div>
-
-      {!recorderMode && subTab === 'lineup' && (
-        <LineupPanel
-          game={activeGame}
-          players={players}
-          onUpdate={guardedUpdate}
-          readOnly={isReadOnly}
-          hasBottomNav={hasBottomNav}
-        />
-      )}
 
       {subTab === 'positions' && (
         <PositionPanel
           game={activeGame}
           players={players}
           onUpdate={recorderMode || isReadOnly ? undefined : guardedUpdate}
+          readOnly={isReadOnly}
+          hasBottomNav={hasBottomNav}
+        />
+      )}
+
+      {!recorderMode && subTab === 'lineup' && (
+        <LineupPanel
+          game={activeGame}
+          players={players}
+          onUpdate={guardedUpdate}
           readOnly={isReadOnly}
           hasBottomNav={hasBottomNav}
         />
@@ -613,82 +768,101 @@ export function RecordPanel({
 
           {activeLineup.length === 0 ? (
             <Card className="text-center text-sm text-gray-500 py-6">
-              請先到「棒次」分頁排定打序
+              請先到「守位」分頁排定先發（或至「棒次」微調打序）
             </Card>
           ) : (
             <div className="space-y-3">
-              <div>
-                <div className="flex items-center justify-between mb-2 px-1">
-                  <h4 className="text-xs text-gray-500">
-                    {canRecord ? '打序（點擊紀錄 · 每頁 4 棒）' : '打序'}
-                  </h4>
-                  {lineupPageCount > 1 && (
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setLineupPage((p) => (p - 1 + lineupPageCount) % lineupPageCount)}
-                        className="w-8 h-8 rounded-lg bg-gray-100 text-gray-600 font-bold text-sm"
-                        aria-label="上一頁打序"
-                      >
-                        ‹
-                      </button>
-                      <span className="text-xs text-gray-500 min-w-[3rem] text-center">
-                        {lineupPage + 1}/{lineupPageCount}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => setLineupPage((p) => (p + 1) % lineupPageCount)}
-                        className="w-8 h-8 rounded-lg bg-gray-100 text-gray-600 font-bold text-sm"
-                        aria-label="下一頁打序"
-                      >
-                        ›
-                      </button>
+              <div className="space-y-3">
+                {canRecord && currentEntry ? (
+                  <>
+                    <div>
+                      <h4 className="text-xs text-gray-500 mb-2 px-1">目前棒次</h4>
+                      {renderLineupRow(currentEntry, 'current')}
                     </div>
-                  )}
-                </div>
-                {lineupPage === 0 && canRecord && (
-                  <p className="text-[10px] text-field-green px-1 mb-2">本頁：目前棒次 + 下 3 棒</p>
-                )}
-                <div className="space-y-2">
-                  {visibleLineupEntries.map((entry) => {
-                    const player = players.find((p) => p.id === entry.playerId);
-                    const isNextBatter = canRecord && selectedPlayer === entry.playerId;
-                    const isLastOut = lastOutId === entry.playerId;
-                    const playerAtBats = currentHalfAtBats.filter((a) => a.playerId === entry.playerId);
-                    return (
-                      <button
-                        key={entry.playerId}
-                        type="button"
-                        onClick={() => openRecordForPlayer(entry.playerId)}
-                        disabled={!canRecord}
-                        className={`w-full flex items-center gap-3 rounded-xl px-4 py-3 border-2 text-left ${
-                          isNextBatter ? 'border-field-green bg-green-50' : 'border-gray-200 bg-white'
-                        } ${isLastOut ? 'ring-2 ring-red-400' : ''} ${!canRecord ? 'opacity-60' : ''}`}
-                      >
-                        <span className="text-xl font-bold text-field-green w-7 shrink-0">{entry.battingOrder}</span>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-bold text-base truncate">{player?.name}</p>
-                          {playerAtBats.length > 0 && (
-                            <p className="text-xs text-gray-400 mt-0.5 truncate">
-                              本局：{playerAtBats.map((a) => getResultLabel(a.result)).join('、')}
-                            </p>
-                          )}
+                    {nextThreeEntries.length > 0 && (
+                      <div>
+                        <h4 className="text-xs text-gray-500 mb-2 px-1">下 3 棒</h4>
+                        <div className="space-y-2">
+                          {nextThreeEntries.map((entry) => renderLineupRow(entry, 'upcoming'))}
                         </div>
-                        {isNextBatter && (
-                          <span className="text-xs bg-field-green text-white px-2.5 py-1 rounded-full shrink-0">
-                            打擊
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <div className="flex items-center justify-between mb-2 px-1">
+                      <h4 className="text-xs text-gray-500">打序（每頁 3 棒）</h4>
+                      {lineupPaginationCount > 1 && (
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setLineupPage(
+                                (p) => (p - 1 + lineupPaginationCount) % lineupPaginationCount
+                              )
+                            }
+                            className="w-8 h-8 rounded-lg bg-gray-100 text-gray-600 font-bold text-sm"
+                            aria-label="上一頁打序"
+                          >
+                            ‹
+                          </button>
+                          <span className="text-xs text-gray-500 min-w-[3rem] text-center">
+                            {lineupPage + 1}/{lineupPaginationCount}
                           </span>
-                        )}
-                        {isLastOut && (
-                          <span className="text-xs bg-red-500 text-white px-2 py-1 rounded-full shrink-0">出局</span>
-                        )}
-                        {canRecord && (
-                          <span className="text-gray-300 shrink-0">›</span>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
+                          <button
+                            type="button"
+                            onClick={() => setLineupPage((p) => (p + 1) % lineupPaginationCount)}
+                            className="w-8 h-8 rounded-lg bg-gray-100 text-gray-600 font-bold text-sm"
+                            aria-label="下一頁打序"
+                          >
+                            ›
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      {pagedBrowseEntries.map((entry) => renderLineupRow(entry, 'browse'))}
+                    </div>
+                  </>
+                )}
+
+                {canRecord && otherLineupEntries.length > 0 && (
+                  <div>
+                    <div className="flex items-center justify-between mb-2 px-1">
+                      <h4 className="text-xs text-gray-500">其他棒次（每頁 3 棒）</h4>
+                      {otherLineupPageCount > 1 && (
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setLineupPage(
+                                (p) => (p - 1 + otherLineupPageCount) % otherLineupPageCount
+                              )
+                            }
+                            className="w-8 h-8 rounded-lg bg-gray-100 text-gray-600 font-bold text-sm"
+                            aria-label="上一頁其他棒次"
+                          >
+                            ‹
+                          </button>
+                          <span className="text-xs text-gray-500 min-w-[3rem] text-center">
+                            {lineupPage + 1}/{otherLineupPageCount}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setLineupPage((p) => (p + 1) % otherLineupPageCount)}
+                            className="w-8 h-8 rounded-lg bg-gray-100 text-gray-600 font-bold text-sm"
+                            aria-label="下一頁其他棒次"
+                          >
+                            ›
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      {pagedOtherEntries.map((entry) => renderLineupRow(entry, 'upcoming'))}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* 紀錄列表 */}
@@ -765,6 +939,20 @@ export function RecordPanel({
                 onEditOuts={setEditOuts}
                 onSaveEdit={saveEditAtBat}
               />
+              )}
+
+              {pinchHitTarget && (
+                <PlayerPickerSheet
+                  title={`${pinchHitTarget.battingOrder}棒代打 — 選擇替補球員`}
+                  players={players}
+                  disabledIds={activeLineup
+                    .map((e) => e.playerId)
+                    .filter((id) => id !== pinchHitTarget.playerId)}
+                  allowClear={false}
+                  hasBottomNav={hasBottomNav}
+                  onSelect={handlePinchHitSelect}
+                  onClose={() => setPinchHitTarget(null)}
+                />
               )}
             </div>
           )}
