@@ -1,0 +1,18 @@
+---
+description: CI 建置與 TypeScript 嚴格檢查（避免 push 後 build 失敗）
+alwaysApply: true
+---
+
+# CI / TypeScript 注意事項
+
+本專案 `tsconfig.json` 啟用 `noUnusedLocals` 與 `noUnusedParameters`，`npm run build`（含 `tsc --noEmit`）會因未使用變數/常數/匯入而失敗。
+
+## 修改程式後
+
+- 刪除未使用的常數、變數、型別匯入與函式參數；不要留「以後可能用到」的宣告。
+- 變更完成後對改過的檔案確認無 linter / tsc 錯誤。
+- 新增檔案勿放在會被 `.gitignore` 忽略的目錄（例如根目錄 `data/` 會忽略所有 `data/` 路徑）；原始碼請用 `src/content/`、`src/utils/` 等。
+
+## 重構時
+
+- 改用新常數或新 API 後，一併移除舊的（例如 `FIELD_POSITIONS` 被 `ALL_ASSIGNABLE` 取代時要刪掉前者）。

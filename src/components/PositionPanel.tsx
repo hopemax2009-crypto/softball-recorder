@@ -5,7 +5,6 @@ import { assignPlayerToPosition } from '../utils/gameLogic';
 import { PlayerPickerSheet } from './PlayerPickerSheet';
 import { Card } from './ui';
 
-const FIELD_POSITIONS: Position[] = ['LF', 'CF', 'RF', 'SS', '2B', '3B', 'P', '1B', 'C'];
 const ALL_ASSIGNABLE: Position[] = ['P', 'C', '1B', '2B', '3B', 'SS', 'LF', 'CF', 'RF', 'DH', 'EP', 'FLEX'];
 
 interface Props {
