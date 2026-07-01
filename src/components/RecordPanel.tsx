@@ -698,35 +698,27 @@ export function RecordPanel({
         </div>
       )}
 
-      {activeLineup.length > 0 && currentEntry && (
-        <div className="rounded-xl border-2 border-field-green bg-green-50/80 p-2 shadow-sm">
-          <h4 className="text-xs text-field-green font-semibold mb-2 px-1">
-            {canRecord ? '目前棒次 · 點擊紀錄打席' : '目前棒次'}
-          </h4>
-          {renderLineupRow(currentEntry, 'current')}
-        </div>
-      )}
-
-      <div className="flex gap-1 bg-gray-100 rounded-xl p-1">
+      <div className="flex gap-1.5 bg-gray-200 rounded-2xl p-1.5 border border-gray-300 shadow-sm">
         {subTabs.map((t) => {
           const isActive = subTab === t;
           const tabClass =
             t === 'positions'
               ? isActive
-                ? 'bg-sky-100 shadow text-sky-800'
-                : 'text-sky-600/80'
+                ? 'bg-sky-500 text-white shadow-md ring-2 ring-sky-300'
+                : 'bg-white/70 text-sky-700 hover:bg-white'
               : t === 'lineup'
                 ? isActive
-                  ? 'bg-amber-100 shadow text-amber-900'
-                  : 'text-amber-700/80'
+                  ? 'bg-amber-500 text-white shadow-md ring-2 ring-amber-300'
+                  : 'bg-white/70 text-amber-700 hover:bg-white'
                 : isActive
-                  ? 'bg-white shadow text-field-green'
-                  : 'text-gray-500';
+                  ? 'bg-field-green text-white shadow-md ring-2 ring-green-300'
+                  : 'bg-white/70 text-gray-600 hover:bg-white';
           return (
             <button
               key={t}
+              type="button"
               onClick={() => setSubTab(t)}
-              className={`flex-1 py-2 rounded-lg text-xs font-medium ${tabClass}`}
+              className={`flex-1 py-3 rounded-xl text-sm font-bold transition-all ${tabClass}`}
             >
               {t === 'record' ? '紀錄' : t === 'lineup' ? '棒次' : '守位'}
             </button>
@@ -756,6 +748,15 @@ export function RecordPanel({
 
       {subTab === 'record' && (
         <>
+          {activeLineup.length > 0 && currentEntry && (
+            <div className="rounded-xl border-2 border-field-green bg-green-50/80 p-2 shadow-sm">
+              <h4 className="text-xs text-field-green font-semibold mb-2 px-1">
+                {canRecord ? '目前棒次 · 點擊紀錄打席' : '目前棒次'}
+              </h4>
+              {renderLineupRow(currentEntry, 'current')}
+            </div>
+          )}
+
           <div className="text-center text-sm bg-gray-50 rounded-xl py-2">
             <span className="font-bold text-field-green">
               {getInningLabel(activeGame.currentInning, activeGame.currentHalf)}
