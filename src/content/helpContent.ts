@@ -69,7 +69,7 @@ export const HELP_CONTENT: Record<HelpPageId, HelpContent> = {
         title: '基本操作',
         items: [
           { text: '切換「打擊／投手」與「賽季／累計」，點球員卡片查看詳細統計。' },
-          { text: '投手成績依對方得分時紀錄的投手 P 計算失分與防禦率。' },
+          { text: '投手成績依對方得分時紀錄的投手 P 計算失分與防禦率，詳情含投手雷達圖。' },
           { text: '「發布公開統計」可產生連結，供任何人唯讀查詢（無需登入）。' },
         ],
       },
@@ -80,7 +80,7 @@ export const HELP_CONTENT: Record<HelpPageId, HelpContent> = {
           { label: '上壘率', text: '(安打+保送+死球) ÷ (打數+保送+死球+犧飛)（滿分 .750）' },
           { label: '幸運值', text: '失誤 ÷ 打數（滿分 .200）' },
           { label: '長打爆發力', text: '(二安+三安×2+全壘×3) ÷ 打數（滿分 .600）' },
-          { label: '惡運值', text: '雙殺 ÷ (三振+滾地+飛球+野選+雙殺)（滿分 .200）' },
+          { label: '惡運值', text: '雙殺 ÷ 打數（雷達滿分 .150）' },
         ],
       },
       {

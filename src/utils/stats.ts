@@ -132,8 +132,7 @@ export function calculatePlayerStats(
   const slg = ab > 0 ? totalBases / ab : 0;
   const luckValue = ab > 0 ? e / ab : 0;
   const iso = ab > 0 ? (doubles + triples * 2 + hr * 3) / ab : 0;
-  const badLuckDenom = so + go + fo + fc + dp;
-  const badLuckValue = badLuckDenom > 0 ? dp / badLuckDenom : 0;
+  const badLuckValue = ab > 0 ? dp / ab : 0;
   const woba = pa > 0 ? wobaNumerator({ bb, singles, doubles, triples, hr }) / pa : 0;
 
   return {
@@ -247,7 +246,7 @@ const RADAR_MAX = {
   obp: 0.75,
   luck: 0.2,
   iso: 0.6,
-  badLuck: 0.2,
+  badLuck: 0.15,
 } as const;
 
 /** 雷達圖用 0–100 分（依各指標滿分正規化） */
@@ -320,38 +319,40 @@ export function calculatePitcherStats(
   const gameIds = new Set<string>();
   const halfKeys = new Set<string>();
   let runsAllowed = 0;
+  let scorelessHalves = 0;
 
   for (const game of filteredGames) {
-    const wasP = (game.lineup ?? []).some(
-      (l) => l.isActive && l.playerId === player.id && l.position === 'P'
-    );
-    const hasOpponentRuns = (game.opponentScores ?? []).some((s) => s.runs > 0);
-
-    if (wasP && hasOpponentRuns) {
-      gameIds.add(game.id);
-    }
-
     for (const score of game.opponentScores ?? []) {
-      let hasRunInHalf = false;
+      let pitchedHalf = score.pitcherId === player.id;
+      let runsInHalf = 0;
       for (const run of score.pitcherRuns ?? []) {
         if (run.pitcherId === player.id) {
           runsAllowed++;
-          gameIds.add(game.id);
-          hasRunInHalf = true;
+          runsInHalf++;
+          pitchedHalf = true;
         }
       }
-      if (hasRunInHalf) {
+      if (pitchedHalf) {
+        gameIds.add(game.id);
         halfKeys.add(`${game.id}-${score.inning}-${score.half}`);
+        if (runsInHalf === 0) {
+          scorelessHalves++;
+        }
       }
     }
   }
 
-  if (gameIds.size === 0 && runsAllowed === 0) return null;
+  if (halfKeys.size === 0 && runsAllowed === 0) return null;
 
   const halfInnings = halfKeys.size;
   const gamesCount = gameIds.size;
   const era =
     halfInnings > 0 ? formatRate((runsAllowed * 7) / halfInnings) : null;
+  const runsPerHalf = halfInnings > 0 ? formatRate(runsAllowed / halfInnings) : 0;
+  const scorelessHalfRate =
+    halfInnings > 0 ? formatRate(scorelessHalves / halfInnings) : 0;
+  const workloadPerGame =
+    gamesCount > 0 ? formatRate(halfInnings / gamesCount) : 0;
 
   return {
     playerId: player.id,
@@ -361,6 +362,9 @@ export function calculatePitcherStats(
     halfInnings,
     era,
     runsPerGame: gamesCount > 0 ? formatRate(runsAllowed / gamesCount) : 0,
+    runsPerHalf,
+    scorelessHalfRate,
+    workloadPerGame,
   };
 }
 
@@ -387,18 +391,18 @@ export function getPitcherGameLogs(
     let runs = 0;
     const halfSet = new Set<string>();
     for (const score of game.opponentScores ?? []) {
-      let inHalf = false;
+      let pitchedHalf = score.pitcherId === playerId;
       for (const run of score.pitcherRuns ?? []) {
         if (run.pitcherId === playerId) {
           runs++;
-          inHalf = true;
+          pitchedHalf = true;
         }
       }
-      if (inHalf) {
+      if (pitchedHalf) {
         halfSet.add(`${score.inning}-${score.half}`);
       }
     }
-    if (runs > 0) {
+    if (halfSet.size > 0) {
       logs.push({
         gameId: game.id,
         date: game.date,
@@ -415,4 +419,44 @@ export function getPitcherGameLogs(
 export function formatEra(value: number | null): string {
   if (value == null || !Number.isFinite(value)) return '—';
   return value.toFixed(2);
+}
+
+const PITCHER_RADAR_MAX = {
+  era: 7,
+  runsPerHalf: 1.5,
+  runsPerGame: 4,
+  workload: 5,
+} as const;
+
+const PITCHER_RADAR_LABELS = ['防禦率', '零失分率', '半局失分', '出勤度', '場均失分'] as const;
+
+function invertRatio(value: number, max: number): number {
+  if (max <= 0) return 0;
+  return Math.min(100, Math.max(0, ((max - value) / max) * 100));
+}
+
+/** 投手雷達圖 0–100（越高越好） */
+export function getPitcherRadarScores(stats: PitcherStats): number[] {
+  const eraValue = stats.era ?? (stats.runsAllowed === 0 ? 0 : PITCHER_RADAR_MAX.era);
+  return [
+    invertRatio(eraValue, PITCHER_RADAR_MAX.era),
+    Math.min(100, stats.scorelessHalfRate * 100),
+    invertRatio(stats.runsPerHalf, PITCHER_RADAR_MAX.runsPerHalf),
+    Math.min(100, (stats.workloadPerGame / PITCHER_RADAR_MAX.workload) * 100),
+    invertRatio(stats.runsPerGame, PITCHER_RADAR_MAX.runsPerGame),
+  ];
+}
+
+export function getPitcherRadarLabels(): readonly string[] {
+  return PITCHER_RADAR_LABELS;
+}
+
+export function getPitcherRadarDisplayValues(stats: PitcherStats): string[] {
+  return [
+    formatEra(stats.era),
+    formatPct(stats.scorelessHalfRate),
+    stats.runsPerHalf.toFixed(2),
+    stats.workloadPerGame.toFixed(1),
+    stats.runsPerGame.toFixed(2),
+  ];
 }

@@ -93,7 +93,7 @@ export function PlayerStatsSheet({ stats, teamAvgWoba, onClose, hasBottomNav = t
           <p className="text-[10px] text-gray-400 leading-relaxed">
             打擊率＝安打÷打數 · 上壘率＝(安打+保送+死球)÷(打數+保送+死球+犧飛) ·
             幸運值＝失誤÷打數 · 純長打率＝(二安+三安×2+全壘×3)÷打數 ·
-            惡運值＝雙殺÷(三振+滾地+飛球+野選+雙殺) ·
+            惡運值＝雙殺÷打數 ·
             進攻貢獻分＝(球員wOBA÷全隊平均wOBA)×100
           </p>
         </div>

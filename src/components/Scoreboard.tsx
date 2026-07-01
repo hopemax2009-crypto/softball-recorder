@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { Game, HalfInning, Player } from '../types';
 import {
   addOpponentRun,
+  completeOpponentHalf,
   getAtBatsForHalf,
   getCurrentPitcherId,
   getHalfInningStats,
@@ -13,7 +14,6 @@ import {
   isHalfComplete,
   isOurBattingHalf,
   removeOpponentRun,
-  setOpponentScoreWithPitcher,
 } from '../utils/gameLogic';
 import { Card } from './ui';
 
@@ -130,7 +130,7 @@ export function Scoreboard({
     const next = getNextHalf(editing.inning, editing.half);
     onUpdate({
       ...game,
-      opponentScores: setOpponentScoreWithPitcher(
+      opponentScores: completeOpponentHalf(
         opponentScores,
         editing.inning,
         editing.half,
@@ -307,6 +307,9 @@ export function Scoreboard({
             ) : (
               <span className="text-orange-600">未指派（± 得分時無法紀錄投手）</span>
             )}
+          </p>
+          <p className="text-[10px] text-center text-orange-700/80 mb-3">
+            「完成並下一局」會紀錄該半局投手（含 0 失分）
           </p>
           <div className="flex gap-2 items-center justify-center mb-3">
             <button

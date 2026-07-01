@@ -205,7 +205,6 @@ export function RecorderApp() {
       <main className="max-w-lg mx-auto">
         {game ? (
           <RecordPanel
-            games={[game]}
             players={players}
             activeGame={game}
             recorderMode

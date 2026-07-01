@@ -7,6 +7,8 @@ import { hasActiveLineup, getGameOutcome } from '../utils/gameLogic';
 import { QRShareModal } from './QRShareModal';
 import { Button, Card, EmptyState, Input, Select } from './ui';
 
+const GAMES_PAGE_SIZE = 5;
+
 interface Props {
   seasons: Season[];
   games: Game[];
@@ -35,6 +37,7 @@ export function GamesPanel({
   const [seasonName, setSeasonName] = useState('');
   const [seasonYear, setSeasonYear] = useState(new Date().getFullYear());
   const [selectedSeason, setSelectedSeason] = useState(seasons[0]?.id ?? '');
+  const [gamesPage, setGamesPage] = useState(0);
 
   useEffect(() => {
     if (seasons.length === 0) return;
@@ -43,6 +46,10 @@ export function GamesPanel({
       return seasons[0].id;
     });
   }, [seasons]);
+
+  useEffect(() => {
+    setGamesPage(0);
+  }, [selectedSeason]);
   const [opponent, setOpponent] = useState('');
   const [location, setLocation] = useState('');
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
@@ -58,7 +65,18 @@ export function GamesPanel({
 
   const filteredGames = games
     .filter((g) => !selectedSeason || g.seasonId === selectedSeason)
-    .sort((a, b) => b.date.localeCompare(a.date));
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+
+  const gamesPageCount = Math.max(1, Math.ceil(filteredGames.length / GAMES_PAGE_SIZE));
+
+  useEffect(() => {
+    if (gamesPage >= gamesPageCount) setGamesPage(0);
+  }, [gamesPage, gamesPageCount]);
+
+  const pagedGames = filteredGames.slice(
+    gamesPage * GAMES_PAGE_SIZE,
+    gamesPage * GAMES_PAGE_SIZE + GAMES_PAGE_SIZE
+  );
 
   const openQrModal = (roomId: string, pin: string, opponentName: string, game: Game) => {
     const gameWithRoom: Game = {
@@ -334,7 +352,37 @@ export function GamesPanel({
         <EmptyState icon="📋" title="尚無比賽" description="點擊上方按鈕新增比賽" />
       ) : (
         <div className="space-y-3">
-          {filteredGames.map((game) => {
+          {gamesPageCount > 1 && (
+            <div className="flex items-center justify-between px-1">
+              <span className="text-xs text-gray-500">
+                共 {filteredGames.length} 場 · 每頁 {GAMES_PAGE_SIZE} 筆
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setGamesPage((p) => Math.max(0, p - 1))}
+                  disabled={gamesPage === 0}
+                  className="w-8 h-8 rounded-lg bg-gray-100 text-gray-600 font-bold text-sm disabled:opacity-40"
+                  aria-label="上一頁比賽"
+                >
+                  ‹
+                </button>
+                <span className="text-xs text-gray-500 min-w-[3rem] text-center">
+                  {gamesPage + 1}/{gamesPageCount}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setGamesPage((p) => Math.min(gamesPageCount - 1, p + 1))}
+                  disabled={gamesPage >= gamesPageCount - 1}
+                  className="w-8 h-8 rounded-lg bg-gray-100 text-gray-600 font-bold text-sm disabled:opacity-40"
+                  aria-label="下一頁比賽"
+                >
+                  ›
+                </button>
+              </div>
+            </div>
+          )}
+          {pagedGames.map((game) => {
             const season = seasons.find((s) => s.id === game.seasonId);
             const hasLive = !!game.liveRoomId;
             const completed = !!game.isCompleted;

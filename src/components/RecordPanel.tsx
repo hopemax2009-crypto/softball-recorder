@@ -278,7 +278,6 @@ function RecordSheetOverlay({
 }
 
 interface Props {
-  games: Game[];
   players: Player[];
   activeGame: Game | null;
   recorderMode?: boolean;
@@ -291,7 +290,6 @@ interface Props {
 }
 
 export function RecordPanel({
-  games,
   players: playersProp,
   activeGame,
   recorderMode = false,
@@ -316,8 +314,6 @@ export function RecordPanel({
   const [editOuts, setEditOuts] = useState(0);
   const [lineupPage, setLineupPage] = useState(0);
   const [pinchHitTarget, setPinchHitTarget] = useState<LineupEntry | null>(null);
-
-  const recentGames = [...games].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 10);
 
   const activeLineup = activeGame
     ? (activeGame.lineup ?? []).filter((l) => l.isActive).sort((a, b) => a.battingOrder - b.battingOrder)
@@ -410,6 +406,12 @@ export function RecordPanel({
     setPendingResult(null);
     setPendingRbi(0);
     setPendingOuts(0);
+  };
+
+  const setAsCurrentBatter = (playerId: string) => {
+    if (!canRecord) return;
+    setSelectedPlayer(playerId);
+    closeRecordSheet();
   };
 
   const canSubstitute = !isReadOnly && !!activeGame && activeLineup.length > 0;
@@ -508,13 +510,18 @@ export function RecordPanel({
             {cardBody}
           </button>
         ) : (
-          <div
-            className={`flex-1 flex items-center gap-3 rounded-xl px-4 py-3 border-2 border-gray-200 bg-white ${
+          <button
+            type="button"
+            onClick={() => setAsCurrentBatter(entry.playerId)}
+            disabled={!canRecord}
+            className={`flex-1 flex items-center gap-3 rounded-xl px-4 py-3 border-2 text-left border-gray-200 bg-white ${
               isLastOut ? 'ring-2 ring-red-400' : ''
-            } ${mode === 'browse' && selectedPlayer === entry.playerId ? 'border-field-green/50 bg-green-50/50' : ''}`}
+            } ${mode === 'browse' && selectedPlayer === entry.playerId ? 'border-field-green/50 bg-green-50/50' : ''} ${
+              canRecord ? 'active:opacity-90 hover:border-field-green/40' : ''
+            }`}
           >
             {cardBody}
-          </div>
+          </button>
         )}
       </div>
     );
@@ -610,20 +617,11 @@ export function RecordPanel({
   if (!activeGame) {
     return (
       <div className="p-4">
-        <EmptyState icon="✏️" title="選擇比賽開始紀錄" description="選擇一場比賽進入打擊紀錄" />
-        {recentGames.length > 0 && (
-          <div className="space-y-2 mt-4">
-            <h3 className="text-sm font-medium text-gray-500 px-1">最近比賽</h3>
-            {recentGames.map((game) => (
-              <Card key={game.id}>
-                <button onClick={() => onSelectGame(game)} className="w-full text-left">
-                  <div className="font-semibold">{game.opponent}</div>
-                  <div className="text-sm text-gray-500">{game.date} · {game.atBats.length} 打席</div>
-                </button>
-              </Card>
-            ))}
-          </div>
-        )}
+        <EmptyState
+          icon="✏️"
+          title="尚未選擇比賽"
+          description="請至「比賽」分頁點選比賽進入紀錄"
+        />
       </div>
     );
   }
@@ -700,6 +698,15 @@ export function RecordPanel({
         </div>
       )}
 
+      {activeLineup.length > 0 && currentEntry && (
+        <div className="rounded-xl border-2 border-field-green bg-green-50/80 p-2 shadow-sm">
+          <h4 className="text-xs text-field-green font-semibold mb-2 px-1">
+            {canRecord ? '目前棒次 · 點擊紀錄打席' : '目前棒次'}
+          </h4>
+          {renderLineupRow(currentEntry, 'current')}
+        </div>
+      )}
+
       <div className="flex gap-1 bg-gray-100 rounded-xl p-1">
         {subTabs.map((t) => {
           const isActive = subTab === t;
@@ -771,18 +778,14 @@ export function RecordPanel({
               請先到「守位」分頁排定先發（或至「棒次」微調打序）
             </Card>
           ) : (
-            <div className="space-y-3">
-              <div className="space-y-3">
+            <div className="space-y-4">
+              <div className="space-y-4">
                 {canRecord && currentEntry ? (
                   <>
-                    <div>
-                      <h4 className="text-xs text-gray-500 mb-2 px-1">目前棒次</h4>
-                      {renderLineupRow(currentEntry, 'current')}
-                    </div>
                     {nextThreeEntries.length > 0 && (
                       <div>
-                        <h4 className="text-xs text-gray-500 mb-2 px-1">下 3 棒</h4>
-                        <div className="space-y-2">
+                        <h4 className="text-xs text-gray-500 mb-2 px-1">下 3 棒 · 點擊設為目前棒次</h4>
+                        <div className="space-y-2.5">
                           {nextThreeEntries.map((entry) => renderLineupRow(entry, 'upcoming'))}
                         </div>
                       </div>
@@ -827,9 +830,9 @@ export function RecordPanel({
                 )}
 
                 {canRecord && otherLineupEntries.length > 0 && (
-                  <div>
+                  <div className={nextThreeEntries.length > 0 ? 'pt-2 border-t border-gray-100' : ''}>
                     <div className="flex items-center justify-between mb-2 px-1">
-                      <h4 className="text-xs text-gray-500">其他棒次（每頁 3 棒）</h4>
+                      <h4 className="text-xs text-gray-500">其他棒次 · 點擊設為目前棒次</h4>
                       {otherLineupPageCount > 1 && (
                         <div className="flex items-center gap-2">
                           <button

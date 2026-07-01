@@ -163,7 +163,6 @@ function HostApp() {
       <main className="max-w-lg mx-auto">
         {tab === 'record' && (
           <RecordPanel
-            games={data.games}
             players={data.players}
             activeGame={activeGame}
             syncState={activeGame?.liveRoomId ? syncState : null}

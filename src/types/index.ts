@@ -103,6 +103,8 @@ export interface OpponentScore {
   runs: number;
   /** 逐分失分投手紀錄，長度應與 runs 一致 */
   pitcherRuns?: OpponentRunAttribution[];
+  /** 該半局投手（完成半局時的 P，含未失分半局） */
+  pitcherId?: string;
   updatedAt?: string;
 }
 
@@ -223,7 +225,7 @@ export interface BattingStats {
   luckValue: number;
   /** 純長打率 ISO：(二安 + 三安×2 + 全壘×3) / 打數 */
   iso: number;
-  /** 惡運值：雙殺 ÷ (三振+滾地+飛球+野選+雙殺) */
+  /** 惡運值：雙殺 ÷ 打數 */
   badLuckValue: number;
   /** 慢壘 wOBA */
   woba: number;
@@ -238,12 +240,18 @@ export interface PitcherStats {
   games: number;
   /** 失分（對手得分時紀錄的投手失分） */
   runsAllowed: number;
-  /** 有失分紀錄的半局數（估算投球局數用） */
+  /** 投球半局數（含未失分半局） */
   halfInnings: number;
   /** 防禦率：(失分×7)÷半局數，7局制估算 */
   era: number | null;
   /** 場均失分 */
   runsPerGame: number;
+  /** 每半局失分 */
+  runsPerHalf: number;
+  /** 零失分半局比率 */
+  scorelessHalfRate: number;
+  /** 平均每場投球半局數 */
+  workloadPerGame: number;
 }
 
 export interface PitcherGameLog {

@@ -49,6 +49,10 @@ export function getOpponentScoreEntry(
   return scores.find((s) => s.inning === inning && s.half === half);
 }
 
+function shouldKeepOpponentScoreEntry(entry: OpponentScore): boolean {
+  return entry.runs > 0 || !!entry.pitcherId;
+}
+
 function replaceOpponentScoreEntry(
   scores: OpponentScore[],
   entry: OpponentScore
@@ -56,8 +60,16 @@ function replaceOpponentScoreEntry(
   const filtered = scores.filter(
     (s) => !(s.inning === entry.inning && s.half === entry.half)
   );
-  if (entry.runs <= 0) return filtered;
+  if (!shouldKeepOpponentScoreEntry(entry)) return filtered;
   return [...filtered, entry];
+}
+
+function mergeHalfPitcherId(
+  existing: OpponentScore | undefined,
+  halfPitcherId: string | null | undefined
+): string | undefined {
+  if (halfPitcherId) return halfPitcherId;
+  return existing?.pitcherId;
 }
 
 /** 對手 +1 分，並記錄當下投手 */
@@ -75,6 +87,7 @@ export function addOpponentRun(
     half,
     runs: (existing?.runs ?? 0) + 1,
     pitcherRuns,
+    pitcherId: mergeHalfPitcherId(existing, pitcherId),
     updatedAt: new Date().toISOString(),
   });
 }
@@ -88,11 +101,13 @@ export function removeOpponentRun(
   const existing = getOpponentScoreEntry(scores, inning, half);
   if (!existing || existing.runs <= 0) return scores;
   const pitcherRuns = (existing.pitcherRuns ?? []).slice(0, -1);
+  const runs = existing.runs - 1;
   return replaceOpponentScoreEntry(scores, {
     inning,
     half,
-    runs: existing.runs - 1,
+    runs,
     pitcherRuns,
+    pitcherId: existing.pitcherId,
     updatedAt: new Date().toISOString(),
   });
 }
@@ -118,7 +133,7 @@ export function setOpponentScoreWithPitcher(
     pitcherRuns = pitcherRuns.slice(0, target);
   }
 
-  if (target === 0) {
+  if (target === 0 && !mergeHalfPitcherId(existing, pitcherIdForNewRuns)) {
     return scores.filter((s) => !(s.inning === inning && s.half === half));
   }
 
@@ -126,7 +141,42 @@ export function setOpponentScoreWithPitcher(
     inning,
     half,
     runs: target,
-    pitcherRuns,
+    pitcherRuns: pitcherRuns.length > 0 ? pitcherRuns : undefined,
+    pitcherId: mergeHalfPitcherId(existing, pitcherIdForNewRuns),
+    updatedAt: new Date().toISOString(),
+  });
+}
+
+/** 完成對手半局：紀錄得分並標記該半局投手（含 0 失分） */
+export function completeOpponentHalf(
+  scores: OpponentScore[],
+  inning: number,
+  half: HalfInning,
+  runs: number,
+  halfPitcherId: string | null
+): OpponentScore[] {
+  const target = Math.max(0, runs);
+  const existing = getOpponentScoreEntry(scores, inning, half);
+  let pitcherRuns = [...(existing?.pitcherRuns ?? [])];
+
+  if (target > (existing?.runs ?? 0)) {
+    for (let i = 0; i < target - (existing?.runs ?? 0); i++) {
+      pitcherRuns.push(halfPitcherId ? { pitcherId: halfPitcherId } : {});
+    }
+  } else if (target < (existing?.runs ?? 0)) {
+    pitcherRuns = pitcherRuns.slice(0, target);
+  }
+
+  if (target === 0 && !halfPitcherId) {
+    return scores.filter((s) => !(s.inning === inning && s.half === half));
+  }
+
+  return replaceOpponentScoreEntry(scores, {
+    inning,
+    half,
+    runs: target,
+    pitcherRuns: pitcherRuns.length > 0 ? pitcherRuns : undefined,
+    pitcherId: halfPitcherId ?? existing?.pitcherId,
     updatedAt: new Date().toISOString(),
   });
 }
@@ -139,7 +189,7 @@ export function setOpponentScore(
 ): OpponentScore[] {
   const target = Math.max(0, runs);
   const existing = getOpponentScoreEntry(scores, inning, half);
-  if (target === 0) {
+  if (target === 0 && !existing?.pitcherId) {
     return scores.filter((s) => !(s.inning === inning && s.half === half));
   }
   let pitcherRuns = existing?.pitcherRuns ?? [];
@@ -151,6 +201,7 @@ export function setOpponentScore(
     half,
     runs: target,
     pitcherRuns: pitcherRuns.length > 0 ? pitcherRuns : undefined,
+    pitcherId: existing?.pitcherId,
     updatedAt: new Date().toISOString(),
   });
 }

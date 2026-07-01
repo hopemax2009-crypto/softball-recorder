@@ -1,7 +1,7 @@
 import type { Game, PitcherStats } from '../types';
 import { formatEra, getPitcherGameLogs } from '../utils/stats';
+import { PitcherRadarChart } from './PitcherRadarChart';
 import { StatBox } from './ui';
-
 interface Props {
   stats: PitcherStats;
   games: Game[];
@@ -55,8 +55,9 @@ export function PitcherStatsSheet({
             </p>
           </div>
 
-          <div className="grid grid-cols-3 gap-2">
-            <StatBox label="防禦率" value={formatEra(stats.era)} />
+          <PitcherRadarChart stats={stats} />
+
+          <div className="grid grid-cols-3 gap-2">            <StatBox label="防禦率" value={formatEra(stats.era)} />
             <StatBox label="出賽" value={String(stats.games)} />
             <StatBox label="場均失分" value={stats.runsPerGame.toFixed(2)} />
             <StatBox label="投球半局" value={String(stats.halfInnings)} />
@@ -86,11 +87,10 @@ export function PitcherStatsSheet({
           )}
 
           <p className="text-[10px] text-gray-400 leading-relaxed">
-            防禦率＝(失分×7)÷有失分紀錄的半局數（7局制估算）。
-            需於比賽紀錄中輸入對方得分並指派投手 P，失分才會歸屬投手。
-            無失分或未紀錄投手的半局不計入防禦率。
-          </p>
-        </div>
+            雷達圖五軸（越高越好）：防禦率、零失分率、半局失分、出勤度、場均失分。
+            防禦率＝(失分×7)÷投球半局數（7局制估算）。
+            投球半局於對方半局「完成並下一局」時紀錄（含 0 失分），需指派投手 P。
+          </p>        </div>
       </div>
     </>
   );
