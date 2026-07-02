@@ -127,10 +127,7 @@ function HostApp() {
     );
   }
 
-  if (!session || !data) {
-    return <Login onAuth={onAuth} />;
-  }
-  const canUseRegister = canUseRegisterForUsername(session.username);
+  const canUseRegister = session ? canUseRegisterForUsername(session.username) : false;
   const visibleTabs: TabId[] = canUseRegister
     ? ['record', 'games', 'stats', 'players', 'settings', 'register']
     : ['record', 'games', 'stats', 'players', 'settings'];
@@ -139,6 +136,10 @@ function HostApp() {
       setTab('settings');
     }
   }, [tab, canUseRegister]);
+
+  if (!session || !data) {
+    return <Login onAuth={onAuth} />;
+  }
 
   const TITLES: Record<TabId, string> = {
     record: activeGame ? `主控 · ${activeGame.opponent}` : '打擊紀錄',
