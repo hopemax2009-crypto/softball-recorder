@@ -1,5 +1,5 @@
 import type { BattingStats } from '../types';
-import { formatAvg, formatWobaPlus, getWobaPlusTone } from '../utils/stats';
+import { formatAvg, formatPct, formatWobaPlus, getWobaPlusTone } from '../utils/stats';
 import { PlayerRadarChart } from './PlayerRadarChart';
 import { StatBox } from './ui';
 
@@ -67,6 +67,8 @@ export function PlayerStatsSheet({ stats, teamAvgWoba, onClose, hasBottomNav = t
             <StatBox label="幸運值" value={formatAvg(stats.luckValue)} />
             <StatBox label="純長打率" value={formatAvg(stats.iso)} />
             <StatBox label="惡運值" value={formatAvg(stats.badLuckValue)} />
+            <StatBox label="滾球比率" value={formatPct(stats.groundBallRate)} />
+            <StatBox label="飛球比率" value={formatPct(stats.flyBallRate)} />
           </div>
 
           <div className="grid grid-cols-4 gap-2 text-center text-sm">
@@ -94,6 +96,8 @@ export function PlayerStatsSheet({ stats, teamAvgWoba, onClose, hasBottomNav = t
             打擊率＝安打÷打數 · 上壘率＝(安打+保送+死球)÷(打數+保送+死球+犧飛) ·
             幸運值＝失誤÷打數 · 純長打率＝(二安+三安×2+全壘×3)÷打數 ·
             惡運值＝雙殺÷打數 ·
+            滾球比率＝滾球出局÷(滾球出局+飛球出局) ·
+            飛球比率＝飛球出局÷(滾球出局+飛球出局) ·
             進攻貢獻分＝(球員wOBA÷全隊平均wOBA)×100
           </p>
         </div>

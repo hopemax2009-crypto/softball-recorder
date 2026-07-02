@@ -1,7 +1,6 @@
 import type { BattingStats } from '../types';
-import { formatAvg, getRadarScores } from '../utils/stats';
+import { getRadarDisplayValues, getRadarLabels, getRadarScores } from '../utils/stats';
 
-const LABELS = ['打擊率', '上壘率', '幸運值', '惡運值', '長打爆發力'] as const;
 const CX = 120;
 const CY = 110;
 const R = 72;
@@ -29,18 +28,13 @@ interface Props {
 }
 
 export function PlayerRadarChart({ stats }: Props) {
+  const labels = getRadarLabels();
   const scores = getRadarScores(stats);
-  const values = [
-    formatAvg(stats.avg),
-    formatAvg(stats.obp),
-    formatAvg(stats.luckValue),
-    formatAvg(stats.badLuckValue),
-    formatAvg(stats.iso),
-  ];
+  const values = getRadarDisplayValues(stats);
 
   return (
     <div className="flex flex-col items-center">
-      <svg viewBox="0 0 240 220" className="w-full max-w-[280px]" aria-label="能力雷達圖">
+      <svg viewBox="0 0 260 240" className="w-full max-w-[300px]" aria-label="能力雷達圖">
         {LEVELS.map((level) => (
           <polygon
             key={level}
@@ -50,8 +44,8 @@ export function PlayerRadarChart({ stats }: Props) {
             strokeWidth={1}
           />
         ))}
-        {LABELS.map((_, i) => {
-          const outer = polar(CX, CY, R, i, LABELS.length);
+        {labels.map((_, i) => {
+          const outer = polar(CX, CY, R, i, labels.length);
           return (
             <line
               key={i}
@@ -71,11 +65,11 @@ export function PlayerRadarChart({ stats }: Props) {
           strokeWidth={2}
         />
         {scores.map((_, i) => {
-          const pt = polar(CX, CY, (scores[i] / 100) * R, i, LABELS.length);
+          const pt = polar(CX, CY, (scores[i] / 100) * R, i, labels.length);
           return <circle key={i} cx={pt.x} cy={pt.y} r={3} fill="#228b22" />;
         })}
-        {LABELS.map((label, i) => {
-          const { x, y } = polar(CX, CY, R + 22, i, LABELS.length);
+        {labels.map((label, i) => {
+          const { x, y } = polar(CX, CY, R + 24, i, labels.length);
           return (
             <text
               key={label}
@@ -83,16 +77,16 @@ export function PlayerRadarChart({ stats }: Props) {
               y={y}
               textAnchor="middle"
               dominantBaseline="middle"
-              className="fill-gray-600 text-[9px]"
+              className="fill-gray-600 text-[8px]"
             >
               {label}
             </text>
           );
         })}
       </svg>
-      <div className="grid grid-cols-5 gap-1 w-full max-w-[280px] text-center text-[10px] text-gray-500 -mt-1">
+      <div className="grid grid-cols-4 sm:grid-cols-7 gap-1 w-full max-w-[300px] text-center text-[10px] text-gray-500 -mt-1">
         {values.map((v, i) => (
-          <span key={LABELS[i]} className="font-bold text-field-green">{v}</span>
+          <span key={labels[i]} className="font-bold text-field-green">{v}</span>
         ))}
       </div>
     </div>

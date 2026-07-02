@@ -11,6 +11,7 @@ import {
 } from '../utils/stats';
 import { PitcherStatsSheet } from './PitcherStatsSheet';
 import { PlayerStatsSheet } from './PlayerStatsSheet';
+import { TeamRecordSection } from './TeamRecordSection';
 import { Card, EmptyState, Select } from './ui';
 
 interface Props {
@@ -21,7 +22,7 @@ interface Props {
 }
 
 export function StatsView({ players, seasons, games, hasBottomNav = true }: Props) {
-  const [statType, setStatType] = useState<'batting' | 'pitching'>('batting');
+  const [statType, setStatType] = useState<'batting' | 'pitching' | 'team'>('batting');
   const [view, setView] = useState<'season' | 'total'>('season');
   const [seasonId, setSeasonId] = useState(seasons[0]?.id ?? '');
   const [selectedPlayer, setSelectedPlayer] = useState<string | null>(null);
@@ -66,6 +67,15 @@ export function StatsView({ players, seasons, games, hasBottomNav = true }: Prop
           }`}
         >
           投手
+        </button>
+        <button
+          type="button"
+          onClick={() => setStatType('team')}
+          className={`flex-1 py-2 rounded-xl font-medium text-sm transition ${
+            statType === 'team' ? 'bg-emerald-700 text-white' : 'bg-gray-100 text-gray-600'
+          }`}
+        >
+          球隊戰績
         </button>
       </div>
 
@@ -141,6 +151,10 @@ export function StatsView({ players, seasons, games, hasBottomNav = true }: Prop
             </div>
           )}
         </>
+      )}
+
+      {statType === 'team' && (
+        <TeamRecordSection games={games} seasons={seasons} view={view} seasonId={seasonId} />
       )}
 
       {statType === 'pitching' && (

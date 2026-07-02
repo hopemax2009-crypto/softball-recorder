@@ -133,6 +133,9 @@ export function calculatePlayerStats(
   const luckValue = ab > 0 ? e / ab : 0;
   const iso = ab > 0 ? (doubles + triples * 2 + hr * 3) / ab : 0;
   const badLuckValue = ab > 0 ? dp / ab : 0;
+  const battedOuts = go + fo;
+  const groundBallRate = battedOuts > 0 ? go / battedOuts : 0;
+  const flyBallRate = battedOuts > 0 ? fo / battedOuts : 0;
   const woba = pa > 0 ? wobaNumerator({ bb, singles, doubles, triples, hr }) / pa : 0;
 
   return {
@@ -163,6 +166,8 @@ export function calculatePlayerStats(
     luckValue: formatRate(luckValue),
     iso: formatRate(iso),
     badLuckValue: formatRate(badLuckValue),
+    groundBallRate: formatRate(groundBallRate),
+    flyBallRate: formatRate(flyBallRate),
     woba: formatRate(woba),
     wobaPlus: 0,
   };
@@ -247,7 +252,19 @@ const RADAR_MAX = {
   luck: 0.2,
   iso: 0.6,
   badLuck: 0.15,
+  groundBall: 1,
+  flyBall: 1,
 } as const;
+
+const RADAR_LABELS = [
+  '打擊率',
+  '上壘率',
+  '幸運值',
+  '惡運值',
+  '長打爆發力',
+  '滾球出局比率',
+  '飛球出局比率',
+] as const;
 
 /** 雷達圖用 0–100 分（依各指標滿分正規化） */
 export function getRadarScores(stats: BattingStats): number[] {
@@ -257,6 +274,24 @@ export function getRadarScores(stats: BattingStats): number[] {
     Math.min(100, (stats.luckValue / RADAR_MAX.luck) * 100),
     Math.min(100, (stats.badLuckValue / RADAR_MAX.badLuck) * 100),
     Math.min(100, (stats.iso / RADAR_MAX.iso) * 100),
+    Math.min(100, (stats.groundBallRate / RADAR_MAX.groundBall) * 100),
+    Math.min(100, (stats.flyBallRate / RADAR_MAX.flyBall) * 100),
+  ];
+}
+
+export function getRadarLabels(): readonly string[] {
+  return RADAR_LABELS;
+}
+
+export function getRadarDisplayValues(stats: BattingStats): string[] {
+  return [
+    formatAvg(stats.avg),
+    formatAvg(stats.obp),
+    formatAvg(stats.luckValue),
+    formatAvg(stats.badLuckValue),
+    formatAvg(stats.iso),
+    formatPct(stats.groundBallRate),
+    formatPct(stats.flyBallRate),
   ];
 }
 

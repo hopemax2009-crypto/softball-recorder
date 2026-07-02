@@ -227,6 +227,10 @@ export interface BattingStats {
   iso: number;
   /** 惡運值：雙殺 ÷ 打數 */
   badLuckValue: number;
+  /** 滾球比率：滾球出局 ÷ (滾球出局 + 飛球出局) */
+  groundBallRate: number;
+  /** 飛球比率：飛球出局 ÷ (滾球出局 + 飛球出局) */
+  flyBallRate: number;
   /** 慢壘 wOBA */
   woba: number;
   /** 進攻貢獻分：(球員wOBA/全隊平均wOBA)×100 */
@@ -260,6 +264,26 @@ export interface PitcherGameLog {
   opponent: string;
   runsAllowed: number;
   halfInnings: number;
+}
+
+export interface TeamRecordSummary {
+  wins: number;
+  losses: number;
+  ties: number;
+  /** 已判定勝負和的比賽場次 */
+  games: number;
+  /** 勝率 = 勝 / (勝 + 敗)，和局不計入分母 */
+  winRate: number | null;
+}
+
+export interface SeasonTeamRecord extends TeamRecordSummary {
+  seasonId: string;
+  seasonLabel: string;
+  seasonYear: number;
+}
+
+export interface OpponentHeadToHead extends TeamRecordSummary {
+  opponent: string;
 }
 
 export interface GitHubConfig {

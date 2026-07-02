@@ -76,10 +76,10 @@ export function StatsPanel({ players, seasons, games, teamName, publishedBy }: P
     }
   };
 
-  if (players.length === 0) {
+  if (players.length === 0 && games.length === 0) {
     return (
       <div className="p-4">
-        <EmptyState icon="📊" title="尚無統計資料" description="請先新增球員並紀錄打席" />
+        <EmptyState icon="📊" title="尚無統計資料" description="請先新增比賽或球員" />
       </div>
     );
   }
