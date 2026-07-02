@@ -10,10 +10,116 @@ export interface HelpSection {
   items: HelpItem[];
 }
 
-export interface HelpContent {
-  title: string;
+export interface HelpTab {
+  id: string;
+  label: string;
   sections: HelpSection[];
 }
+
+export interface HelpContent {
+  title: string;
+  sections?: HelpSection[];
+  tabs?: HelpTab[];
+}
+
+const STATS_BATTING_SECTIONS: HelpSection[] = [
+  {
+    title: '基本打擊指標',
+    items: [
+      { label: '打擊率 AVG', text: '安打 ÷ 打數' },
+      { label: '上壘率 OBP', text: '(安打+保送+死球) ÷ (打數+保送+死球+犧飛)' },
+      { label: '長打率 SLG', text: '總壘打數 ÷ 打數' },
+      { label: '純長打率 ISO', text: '(二安+三安×2+全壘×3) ÷ 打數' },
+      { label: '幸運值', text: '失誤上壘 ÷ 打數' },
+      { label: '惡運值', text: '雙殺 ÷ 打數' },
+      { label: '滾球出局比率', text: '滾球出局 ÷ (滾球出局+飛球出局)' },
+      { label: '飛球出局比率', text: '飛球出局 ÷ (滾球出局+飛球出局)' },
+    ],
+  },
+  {
+    title: '進攻指標',
+    items: [
+      {
+        label: '慢壘 wOBA',
+        text: '(0.7×保送+0.9×一安+1.25×二安+1.6×三安+2.0×全壘) ÷ 打席',
+      },
+      {
+        label: '進攻貢獻分',
+        text: '(球員 wOBA ÷ 全隊平均 wOBA) × 100。100＝全隊平均。',
+      },
+    ],
+  },
+  {
+    title: '打擊雷達圖（七軸，0～100）',
+    items: [
+      { label: '打擊率', text: '雷達分 = min(100, AVG ÷ 0.700 × 100)' },
+      { label: '上壘率', text: '雷達分 = min(100, OBP ÷ 0.750 × 100)' },
+      { label: '幸運值', text: '雷達分 = min(100, 幸運值 ÷ 0.200 × 100)' },
+      { label: '惡運值', text: '雷達分 = min(100, 惡運值 ÷ 0.150 × 100)' },
+      { label: '長打爆發力', text: '雷達分 = min(100, ISO ÷ 0.600 × 100)' },
+      { label: '滾球出局比率', text: '雷達分 = min(100, 比率 ÷ 1.000 × 100)' },
+      { label: '飛球出局比率', text: '雷達分 = min(100, 比率 ÷ 1.000 × 100)' },
+    ],
+  },
+];
+
+const STATS_PITCHING_SECTIONS: HelpSection[] = [
+  {
+    title: '資料來源',
+    items: [
+      { text: '失分：對方每得 1 分時，若紀錄的投手 P 為該球員則計入 1 失分。' },
+      { text: '投球半局：對方半局「完成並下一局」時指派投手 P 的半局（含 0 失分）。' },
+      { text: '出賽：有投球半局紀錄的不同比賽場數。' },
+    ],
+  },
+  {
+    title: '基本投手指標',
+    items: [
+      { label: '防禦率 ERA', text: '(失分 × 7) ÷ 投球半局（7 局制估算）' },
+      { label: '零失分率', text: '零失分半局 ÷ 投球半局' },
+      { label: '半局失分', text: '失分 ÷ 投球半局' },
+      { label: '場均失分', text: '失分 ÷ 出賽' },
+      { label: '出勤度', text: '投球半局 ÷ 出賽（平均每場投幾個半局）' },
+    ],
+  },
+  {
+    title: '投手雷達圖（五軸，越高越好）',
+    items: [
+      {
+        label: '防禦率',
+        text: '雷達分 = min(100, max(0, (10 − ERA) ÷ 10 × 100))。ERA 越低分數越高；ERA ≥ 10 為 0 分。',
+      },
+      { label: '零失分率', text: '雷達分 = min(100, 零失分率 × 100)' },
+      {
+        label: '半局失分',
+        text: '雷達分 = min(100, max(0, (1.5 − 半局失分) ÷ 1.5 × 100))。越低越好。',
+      },
+      { label: '出勤度', text: '雷達分 = min(100, 出勤度 ÷ 5 × 100)。平均每場 5 半局為滿分。' },
+      {
+        label: '場均失分',
+        text: '雷達分 = min(100, max(0, (4 − 場均失分) ÷ 4 × 100))。越低越好。',
+      },
+    ],
+  },
+];
+
+const STATS_TEAM_SECTIONS: HelpSection[] = [
+  {
+    title: '納入條件',
+    items: [
+      { text: '僅統計已標記「比賽完成」且有得分紀錄的場次。' },
+      { text: '勝負依雙方總分判定；和局另計。' },
+    ],
+  },
+  {
+    title: '計算方式',
+    items: [
+      { label: '勝率', text: '勝 ÷ (勝 + 敗)。和局不計入勝率分母。' },
+      { label: '各季戰績', text: '依賽季篩選比賽後加總勝敗和。' },
+      { label: '對戰勝率表', text: '依對手名稱分組，分別計算勝敗和與勝率。' },
+    ],
+  },
+];
 
 export const HELP_CONTENT: Record<HelpPageId, HelpContent> = {
   games: {
@@ -63,38 +169,35 @@ export const HELP_CONTENT: Record<HelpPageId, HelpContent> = {
     ],
   },
   stats: {
-    title: '成績統計 · 操作說明',
-    sections: [
+    title: '成績統計 · 說明',
+    tabs: [
       {
-        title: '基本操作',
-        items: [
-          { text: '切換「打擊／投手／球隊戰績」與「賽季／累計」，點球員卡片查看詳細統計。' },
-          { text: '「球隊戰績」分頁顯示各季與累計勝率，以及對各對手的對戰勝率表（需標記比賽完成）。' },
-          { text: '投手成績依對方得分時紀錄的投手 P 計算失分與防禦率，詳情含投手雷達圖。' },
-          { text: '「發布公開統計」可產生連結，供任何人唯讀查詢（無需登入）。' },
-        ],
-      },
-      {
-        title: '雷達圖七軸',
-        items: [
-          { label: '打擊率', text: '安打 ÷ 打數（滿分 .700）' },
-          { label: '上壘率', text: '(安打+保送+死球) ÷ (打數+保送+死球+犧飛)（滿分 .750）' },
-          { label: '幸運值', text: '失誤 ÷ 打數（滿分 .200）' },
-          { label: '長打爆發力', text: '(二安+三安×2+全壘×3) ÷ 打數（滿分 .600）' },
-          { label: '惡運值', text: '雙殺 ÷ 打數（雷達滿分 .150）' },
-          { label: '滾球出局比率', text: '滾球出局 ÷ (滾球出局+飛球出局)（滿分 1.000）' },
-          { label: '飛球出局比率', text: '飛球出局 ÷ (滾球出局+飛球出局)（滿分 1.000）' },
-        ],
-      },
-      {
-        title: '進攻指標',
-        items: [
-          { label: '慢壘 wOBA', text: '(0.7×保送+0.9×一安+1.25×二安+1.6×三安+2.0×全壘) ÷ 打席' },
+        id: 'usage',
+        label: '操作',
+        sections: [
           {
-            label: '進攻貢獻分',
-            text: '(球員 wOBA ÷ 全隊平均 wOBA) × 100。100＝平均，140＝高出 40%，70＝低 30%。',
+            title: '基本操作',
+            items: [
+              { text: '切換「打擊／投手／球隊戰績」與「賽季／累計」，點球員卡片查看詳細統計與雷達圖。' },
+              { text: '「發布公開統計」可產生連結，供任何人唯讀查詢（無需登入）。' },
+            ],
           },
         ],
+      },
+      {
+        id: 'batting',
+        label: '打擊',
+        sections: STATS_BATTING_SECTIONS,
+      },
+      {
+        id: 'pitching',
+        label: '投手',
+        sections: STATS_PITCHING_SECTIONS,
+      },
+      {
+        id: 'team',
+        label: '球隊戰績',
+        sections: STATS_TEAM_SECTIONS,
       },
     ],
   },
@@ -150,20 +253,34 @@ export const HELP_CONTENT: Record<HelpPageId, HelpContent> = {
   },
   'public-stats': {
     title: '公開統計 · 說明',
-    sections: [
+    tabs: [
       {
-        title: '使用方式',
-        items: [
-          { text: '此頁面為唯讀，由主控端發布後供任何人查詢。' },
-          { text: '可切換賽季/累計，點球員查看雷達圖與各項指標。' },
+        id: 'usage',
+        label: '操作',
+        sections: [
+          {
+            title: '使用方式',
+            items: [
+              { text: '此頁面為唯讀，由主控端發布後供任何人查詢。' },
+              { text: '可切換賽季/累計，點球員查看雷達圖與各項指標。' },
+            ],
+          },
         ],
       },
       {
-        title: '指標說明',
-        items: [
-          { label: 'wOBA / 貢獻分', text: '衡量進攻貢獻；貢獻分 100 為全隊平均。' },
-          { label: '雷達圖', text: '打擊率、上壘率、幸運值、長打爆發力、惡運值、滾球比率、飛球比率七維能力。' },
-        ],
+        id: 'batting',
+        label: '打擊',
+        sections: STATS_BATTING_SECTIONS,
+      },
+      {
+        id: 'pitching',
+        label: '投手',
+        sections: STATS_PITCHING_SECTIONS,
+      },
+      {
+        id: 'team',
+        label: '球隊戰績',
+        sections: STATS_TEAM_SECTIONS,
       },
     ],
   },

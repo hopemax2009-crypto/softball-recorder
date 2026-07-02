@@ -457,7 +457,7 @@ export function formatEra(value: number | null): string {
 }
 
 const PITCHER_RADAR_MAX = {
-  era: 7,
+  era: 10,
   runsPerHalf: 1.5,
   runsPerGame: 4,
   workload: 5,
