@@ -230,6 +230,13 @@ export const HELP_CONTENT: Record<HelpPageId, HelpContent> = {
           { text: '匯出 JSON 可備份完整資料；匯入 JSON 可還原或合併資料。' },
         ],
       },
+      {
+        title: '應用程式更新',
+        items: [
+          { text: '「更新最新版」會清除快取並重新載入，適用主畫面捷徑或手機仍顯示舊版時。' },
+          { text: '開啟設定頁或回到 App 時會自動檢查是否有新版本。' },
+        ],
+      },
     ],
   },
   recorder: {

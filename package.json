@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc --noEmit && vite build && node scripts/copy-404.mjs",
+    "build": "node scripts/write-version.mjs && tsc --noEmit && vite build && node scripts/copy-404.mjs",
     "icons": "python scripts/generate-icons.py",
     "preview": "vite preview"
   },

@@ -1,9 +1,9 @@
 import { useRef, useState } from 'react';
 import type { UserData } from '../types';
 import type { CloudSyncState } from '../hooks/useAppData';
+import { useAppUpdate } from '../hooks/useAppUpdate';
 import { downloadJson, importData } from '../utils/storage';
 import { Button, Card } from './ui';
-
 interface Props {
   data: UserData;
   cloudSync: CloudSyncState;
@@ -15,6 +15,7 @@ interface Props {
 export function SettingsPanel({ data, cloudSync, onSyncToCloud, onReplaceData, onLogout }: Props) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [status, setStatus] = useState('');
+  const { updateAvailable, checking, clientBuildId, checkNow, reloadToLatest } = useAppUpdate();
 
   const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -43,6 +44,38 @@ export function SettingsPanel({ data, cloudSync, onSyncToCloud, onReplaceData, o
         <p className="text-xs text-gray-400 mt-1">
           最後更新：{new Date(data.updatedAt).toLocaleString('zh-TW')}
         </p>
+      </Card>
+
+      <Card className={`space-y-3 ${updateAvailable ? 'bg-amber-50 border-amber-200' : 'bg-gray-50 border-gray-200'}`}>
+        <h3 className="font-semibold text-gray-900">應用程式更新</h3>
+        <p className="text-xs text-gray-600">
+          若主畫面捷徑仍顯示舊版，可點下方按鈕強制載入最新版（會清除網頁快取並重新整理）。
+        </p>
+        <p className="text-[10px] text-gray-400">
+          目前版本：{clientBuildId}
+          {checking ? ' · 檢查中…' : updateAvailable ? ' · 有新版本' : ' · 已是最新'}
+        </p>
+        {updateAvailable && (
+          <p className="text-xs text-amber-800 bg-amber-100/80 rounded-lg py-2 px-2">
+            偵測到伺服器已發布新版本，建議立即更新。
+          </p>
+        )}
+        <div className="flex gap-2">
+          <Button
+            onClick={() => void reloadToLatest()}
+            className="flex-1 !py-2.5"
+          >
+            更新最新版
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={() => void checkNow()}
+            disabled={checking}
+            className="flex-1 !py-2.5"
+          >
+            {checking ? '檢查中…' : '檢查更新'}
+          </Button>
+        </div>
       </Card>
 
       <Card className="space-y-3 bg-blue-50 border-blue-200">

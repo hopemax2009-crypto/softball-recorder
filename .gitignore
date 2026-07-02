@@ -9,6 +9,8 @@ node_modules
 # Build
 dist
 dist-ssr
+.build-id
+public/version.json
 
 # Editor
 .vscode/*
