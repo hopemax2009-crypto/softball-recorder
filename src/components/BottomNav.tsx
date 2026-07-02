@@ -6,6 +6,7 @@ const TABS: { id: TabId; label: string; icon: string }[] = [
   { id: 'stats', label: '統計', icon: '📊' },
   { id: 'players', label: '球員', icon: '👥' },
   { id: 'settings', label: '設定', icon: '⚙️' },
+  { id: 'register', label: '註冊', icon: '🆕' },
 ];
 
 interface Props {

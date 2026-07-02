@@ -299,6 +299,6 @@ export interface AuthSession {
   displayName: string;
 }
 
-export type TabId = 'games' | 'record' | 'stats' | 'players' | 'settings';
+export type TabId = 'games' | 'record' | 'stats' | 'players' | 'settings' | 'register';
 
 export type RecordSubTab = 'record' | 'lineup' | 'positions';

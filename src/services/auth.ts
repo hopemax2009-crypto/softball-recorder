@@ -69,6 +69,18 @@ export async function register(
   return session;
 }
 
+export async function createAccount(
+  operatorUsername: string,
+  username: string,
+  password: string,
+  displayName: string
+): Promise<void> {
+  if (!canUseRegisterForUsername(operatorUsername)) {
+    throw new Error('目前帳號沒有註冊權限');
+  }
+  await registerCloudAccount(username, password, displayName);
+}
+
 export async function login(username: string, password: string): Promise<AuthSession> {
   const account = await loginCloudAccount(username, password);
   const session = accountToSession(account);

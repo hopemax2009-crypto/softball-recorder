@@ -15,6 +15,7 @@ import { PublicStatsApp } from './components/PublicStatsApp';
 import { getPublicStatsParams } from './utils/publicStats';
 import { PlayersPanel } from './components/PlayersPanel';
 import { SettingsPanel } from './components/SettingsPanel';
+import { RegisterPanel } from './components/RegisterPanel';
 import { PageHelpButton } from './components/PageHelpButton';
 import type { HelpPageId } from './content/helpContent';
 
@@ -135,6 +136,7 @@ function HostApp() {
     stats: '成績統計',
     players: '球員管理',
     settings: '設定',
+    register: '註冊帳號',
   };
 
   const helpPageId: HelpPageId = tab;
@@ -210,6 +212,7 @@ function HostApp() {
             onLogout={logout}
           />
         )}
+        {tab === 'register' && <RegisterPanel session={session} />}
       </main>
 
       <BottomNav active={tab} onChange={setTab} />

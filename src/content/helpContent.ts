@@ -1,4 +1,4 @@
-export type HelpPageId = 'games' | 'record' | 'stats' | 'players' | 'settings' | 'recorder' | 'public-stats';
+export type HelpPageId = 'games' | 'record' | 'stats' | 'players' | 'settings' | 'register' | 'recorder' | 'public-stats';
 
 export interface HelpItem {
   label?: string;
@@ -235,6 +235,19 @@ export const HELP_CONTENT: Record<HelpPageId, HelpContent> = {
         items: [
           { text: '「更新最新版」會清除快取並重新載入，適用主畫面捷徑或手機仍顯示舊版時。' },
           { text: '開啟設定頁或回到 App 時會自動檢查是否有新版本。' },
+        ],
+      },
+    ],
+  },
+  register: {
+    title: '註冊帳號 · 說明',
+    sections: [
+      {
+        title: '使用方式',
+        items: [
+          { text: '註冊已移至登入後底部「註冊」分頁。' },
+          { text: '是否可建立帳號取決於環境變數白名單與註冊開關。' },
+          { text: '建立後對方可用該帳號登入，並可在設定頁自行修改帳密。' },
         ],
       },
     ],
