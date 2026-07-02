@@ -38,6 +38,9 @@ jobs:
           VITE_FIREBASE_AUTH_DOMAIN: ${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}
           VITE_FIREBASE_DATABASE_URL: ${{ secrets.VITE_FIREBASE_DATABASE_URL }}
           VITE_FIREBASE_PROJECT_ID: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
+          VITE_ALLOW_REGISTER: ${{ secrets.VITE_ALLOW_REGISTER }}
+          VITE_REGISTER_ALLOWED_USERNAMES: ${{ secrets.VITE_REGISTER_ALLOWED_USERNAMES }}
+          VITE_ADMIN_USERNAMES: ${{ secrets.VITE_ADMIN_USERNAMES }}
         run: npm run build
 
       - uses: actions/upload-pages-artifact@v3

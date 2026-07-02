@@ -44,7 +44,7 @@ function parseUsernameList(raw?: string): string[] {
     .filter(Boolean);
 }
 
-const ALLOW_REGISTER = import.meta.env.VITE_ALLOW_REGISTER !== 'false';
+const ALLOW_REGISTER = import.meta.env.VITE_ALLOW_REGISTER === 'true';
 const REGISTER_USERNAMES = parseUsernameList(import.meta.env.VITE_REGISTER_ALLOWED_USERNAMES);
 const ADMIN_USERNAMES = parseUsernameList(import.meta.env.VITE_ADMIN_USERNAMES);
 
