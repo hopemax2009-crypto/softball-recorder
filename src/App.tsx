@@ -119,14 +119,6 @@ function HostApp() {
     [updateGame, schedulePush]
   );
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-field-green text-lg">載入中...</div>
-      </div>
-    );
-  }
-
   const canUseRegister = session ? canUseRegisterForUsername(session.username) : false;
   const visibleTabs: TabId[] = canUseRegister
     ? ['record', 'games', 'stats', 'players', 'settings', 'register']
@@ -136,6 +128,14 @@ function HostApp() {
       setTab('settings');
     }
   }, [tab, canUseRegister]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-field-green text-lg">載入中...</div>
+      </div>
+    );
+  }
 
   if (!session || !data) {
     return <Login onAuth={onAuth} />;
