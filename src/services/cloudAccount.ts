@@ -1,4 +1,4 @@
-import { get, ref, runTransaction } from 'firebase/database';
+import { get, ref, runTransaction, set } from 'firebase/database';
 import { getFirebaseDb, isFirebaseConfigured } from '../config/firebase';
 import { stripUndefined } from '../utils/firebaseSanitize';
 
@@ -13,6 +13,14 @@ export interface CloudAccount {
   createdAt: string;
 }
 
+export interface AdminAccountView {
+  userId: string;
+  username: string;
+  displayName: string;
+  createdAt: string;
+  passwordHash: string;
+}
+
 export function normalizeUsername(username: string): string {
   const trimmed = username.trim().toLowerCase();
   if (!USERNAME_RE.test(trimmed)) {
@@ -23,6 +31,10 @@ export function normalizeUsername(username: string): string {
 
 function accountRef(username: string) {
   return ref(getFirebaseDb(), `accounts/${username}`);
+}
+
+function accountsRef() {
+  return ref(getFirebaseDb(), 'accounts');
 }
 
 async function hashPassword(password: string, salt: string): Promise<string> {
@@ -110,6 +122,102 @@ export async function loginCloudAccount(
     return account;
   } catch (err) {
     if (err instanceof Error && err.message === '帳號或密碼錯誤') throw err;
+    throw new Error(mapDbError(err));
+  }
+}
+
+export async function updateCloudAccountCredentials(
+  currentUsername: string,
+  currentPassword: string,
+  nextUsername: string,
+  nextPassword: string | undefined,
+  nextDisplayName: string | undefined
+): Promise<CloudAccount> {
+  if (!isFirebaseConfigured()) throw new Error('雲端尚未設定，無法更新帳號');
+  const current = await loginCloudAccount(currentUsername, currentPassword);
+  const targetUsername = normalizeUsername(nextUsername || current.username);
+  const targetDisplayName = nextDisplayName?.trim() || current.displayName;
+  const targetPassword = nextPassword?.trim() || '';
+  if (targetPassword && targetPassword.length < 4) {
+    throw new Error('新密碼至少 4 碼');
+  }
+
+  const nextSalt = targetPassword ? randomSalt() : current.salt;
+  const nextHash = targetPassword ? await hashPassword(targetPassword, nextSalt) : current.passwordHash;
+
+  const updated: CloudAccount = {
+    ...current,
+    username: targetUsername,
+    displayName: targetDisplayName,
+    passwordHash: nextHash,
+    salt: nextSalt,
+  };
+
+  try {
+    if (targetUsername === current.username) {
+      await set(accountRef(current.username), stripUndefined(updated));
+      return updated;
+    }
+
+    const result = await runTransaction(accountRef(targetUsername), (existing) => {
+      if (existing !== null) return;
+      return stripUndefined(updated);
+    });
+    if (!result.committed) {
+      throw new Error('此帳號已被使用');
+    }
+    await set(accountRef(current.username), null);
+    return updated;
+  } catch (err) {
+    if (err instanceof Error && err.message === '此帳號已被使用') throw err;
+    throw new Error(mapDbError(err));
+  }
+}
+
+export async function listCloudAccountsForAdmin(): Promise<AdminAccountView[]> {
+  if (!isFirebaseConfigured()) throw new Error('雲端尚未設定，無法查詢帳號');
+  try {
+    const snap = await get(accountsRef());
+    if (!snap.exists()) return [];
+    const raw = (snap.val() ?? {}) as Record<string, CloudAccount>;
+    return Object.values(raw)
+      .map((a) => ({
+        userId: a.userId,
+        username: a.username,
+        displayName: a.displayName,
+        createdAt: a.createdAt,
+        passwordHash: a.passwordHash,
+      }))
+      .sort((a, b) => a.username.localeCompare(b.username, 'zh-TW'));
+  } catch (err) {
+    throw new Error(mapDbError(err));
+  }
+}
+
+export async function adminResetCloudAccountPassword(
+  username: string,
+  newPassword: string
+): Promise<void> {
+  if (!isFirebaseConfigured()) throw new Error('雲端尚未設定，無法重設密碼');
+  const name = normalizeUsername(username);
+  if (!newPassword || newPassword.length < 4) {
+    throw new Error('新密碼至少 4 碼');
+  }
+
+  try {
+    const snap = await get(accountRef(name));
+    if (!snap.exists()) throw new Error('找不到此帳號');
+    const account = snap.val() as CloudAccount;
+    const salt = randomSalt();
+    const passwordHash = await hashPassword(newPassword, salt);
+    const updated: CloudAccount = {
+      ...account,
+      salt,
+      passwordHash,
+    };
+    await set(accountRef(name), stripUndefined(updated));
+  } catch (err) {
+    if (err instanceof Error && err.message === '找不到此帳號') throw err;
     throw new Error(mapDbError(err));
   }
 }

@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { AuthSession } from '../types';
 import { isFirebaseConfigured } from '../config/firebase';
-import { login, register } from '../services/auth';
+import { canUseRegisterForUsername, login, register } from '../services/auth';
 import { Button, Card, EmptyState, Input } from './ui';
 
 interface Props {
@@ -15,12 +15,23 @@ export function Login({ onAuth }: Props) {
   const [displayName, setDisplayName] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const normalizedUsername = useMemo(() => username.trim().toLowerCase(), [username]);
+  const canRegister = canUseRegisterForUsername(normalizedUsername);
+
+  useEffect(() => {
+    if (!canRegister && mode === 'register') {
+      setMode('login');
+    }
+  }, [canRegister, mode]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setLoading(true);
     try {
+      if (mode === 'register' && !canRegister) {
+        throw new Error('此帳號無註冊權限，請洽管理者');
+      }
       const session =
         mode === 'login'
           ? await login(username, password)
@@ -65,16 +76,23 @@ export function Login({ onAuth }: Props) {
           >
             登入
           </button>
-          <button
-            type="button"
-            onClick={() => setMode('register')}
-            className={`flex-1 py-2 rounded-xl text-sm font-medium ${
-              mode === 'register' ? 'bg-field-green text-white' : 'bg-gray-100 text-gray-600'
-            }`}
-          >
-            註冊
-          </button>
+          {canRegister && (
+            <button
+              type="button"
+              onClick={() => setMode('register')}
+              className={`flex-1 py-2 rounded-xl text-sm font-medium ${
+                mode === 'register' ? 'bg-field-green text-white' : 'bg-gray-100 text-gray-600'
+              }`}
+            >
+              註冊
+            </button>
+          )}
         </div>
+        {!canRegister && (
+          <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 mb-4">
+            此帳號僅可登入，無註冊權限。
+          </p>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <Input

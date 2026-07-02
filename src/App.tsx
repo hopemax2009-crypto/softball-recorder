@@ -24,6 +24,7 @@ function HostApp() {
     data,
     loading,
     onAuth,
+    onSessionUpdate,
     logout,
     cloudSync,
     syncToCloudNow,
@@ -200,10 +201,12 @@ function HostApp() {
         )}
         {tab === 'settings' && (
           <SettingsPanel
+            session={session}
             data={data}
             cloudSync={cloudSync}
             onSyncToCloud={syncToCloudNow}
             onReplaceData={replaceData}
+            onSessionUpdate={onSessionUpdate}
             onLogout={logout}
           />
         )}

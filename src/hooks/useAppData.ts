@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { v4 as uuid } from 'uuid';
-import { clearSession, getSession } from '../services/auth';
+import { clearSession, getSession, setSession as saveAuthSession } from '../services/auth';
 import { loadCloudData, saveCloudData } from '../services/cloudStorage';
 import { isFirebaseConfigured } from '../config/firebase';
 import type { AuthSession, Game, Player, Season, UserData } from '../types';
@@ -107,11 +107,27 @@ export function useAppData() {
 
   const onAuth = useCallback(
     (s: AuthSession) => {
+      saveAuthSession(s);
       setSession(s);
       void loadUserData(s);
     },
     [loadUserData]
   );
+
+  const onSessionUpdate = useCallback((s: AuthSession) => {
+    saveAuthSession(s);
+    setSession(s);
+    setData((current) => {
+      if (!current) return current;
+      const next = {
+        ...current,
+        ownerName: s.displayName,
+        updatedAt: new Date().toISOString(),
+      };
+      saveData(next);
+      return next;
+    });
+  }, []);
 
   const logout = useCallback(() => {
     clearTimeout(cloudTimerRef.current);
@@ -336,6 +352,7 @@ export function useAppData() {
     cloudSync,
     syncToCloudNow,
     onAuth,
+    onSessionUpdate,
     logout,
     replaceData,
     addSeason,
