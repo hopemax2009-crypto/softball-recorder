@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Game, Player, TabId } from './types';
 import { isGameRecordDataEqual, isSameGameView } from './utils/gameEquals';
 import { getRecorderParams } from './utils/liveRoom';
@@ -18,6 +18,7 @@ import { SettingsPanel } from './components/SettingsPanel';
 import { RegisterPanel } from './components/RegisterPanel';
 import { PageHelpButton } from './components/PageHelpButton';
 import type { HelpPageId } from './content/helpContent';
+import { canUseRegisterForUsername } from './services/auth';
 
 function HostApp() {
   const {
@@ -129,6 +130,15 @@ function HostApp() {
   if (!session || !data) {
     return <Login onAuth={onAuth} />;
   }
+  const canUseRegister = canUseRegisterForUsername(session.username);
+  const visibleTabs: TabId[] = canUseRegister
+    ? ['record', 'games', 'stats', 'players', 'settings', 'register']
+    : ['record', 'games', 'stats', 'players', 'settings'];
+  useEffect(() => {
+    if (tab === 'register' && !canUseRegister) {
+      setTab('settings');
+    }
+  }, [tab, canUseRegister]);
 
   const TITLES: Record<TabId, string> = {
     record: activeGame ? `主控 · ${activeGame.opponent}` : '打擊紀錄',
@@ -212,10 +222,10 @@ function HostApp() {
             onLogout={logout}
           />
         )}
-        {tab === 'register' && <RegisterPanel session={session} />}
+        {tab === 'register' && canUseRegister && <RegisterPanel session={session} />}
       </main>
 
-      <BottomNav active={tab} onChange={setTab} />
+      <BottomNav active={tab} tabs={visibleTabs} onChange={setTab} />
     </div>
   );
 }

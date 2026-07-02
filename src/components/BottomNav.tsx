@@ -11,14 +11,16 @@ const TABS: { id: TabId; label: string; icon: string }[] = [
 
 interface Props {
   active: TabId;
+  tabs?: TabId[];
   onChange: (tab: TabId) => void;
 }
 
-export function BottomNav({ active, onChange }: Props) {
+export function BottomNav({ active, tabs, onChange }: Props) {
+  const visibleTabs = tabs?.length ? TABS.filter((t) => tabs.includes(t.id)) : TABS;
   return (
     <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50 pb-safe">
       <div className="flex justify-around items-center h-16 max-w-lg mx-auto">
-        {TABS.map((tab) => (
+        {visibleTabs.map((tab) => (
           <button
             key={tab.id}
             onClick={() => onChange(tab.id)}
