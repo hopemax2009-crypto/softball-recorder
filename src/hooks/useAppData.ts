@@ -256,6 +256,30 @@ export function useAppData() {
     [data, persist]
   );
 
+  const updatePlayer = useCallback(
+    (playerId: string, name: string, number?: string) => {
+      if (!data) return;
+      const trimmedName = name.trim();
+      if (!trimmedName) return;
+      const trimmedNumber = number?.trim() || undefined;
+      persist({
+        ...data,
+        players: data.players.map((p) =>
+          p.id === playerId ? { ...p, name: trimmedName, number: trimmedNumber } : p
+        ),
+        games: data.games.map((g) => ({
+          ...g,
+          rosterSnapshot: g.rosterSnapshot?.map((snap) =>
+            snap.id === playerId
+              ? { ...snap, name: trimmedName, number: trimmedNumber }
+              : snap
+          ),
+        })),
+      });
+    },
+    [data, persist]
+  );
+
   const deletePlayer = useCallback(
     (playerId: string) => {
       if (!data) return;
@@ -357,6 +381,7 @@ export function useAppData() {
     replaceData,
     addSeason,
     addPlayer,
+    updatePlayer,
     addGame,
     updateGame,
     deleteGame,

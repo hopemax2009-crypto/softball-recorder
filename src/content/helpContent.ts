@@ -1,4 +1,4 @@
-export type HelpPageId = 'games' | 'record' | 'stats' | 'players' | 'settings' | 'register' | 'recorder' | 'public-stats';
+export type HelpPageId = 'games' | 'record' | 'stats' | 'players' | 'settings' | 'register' | 'recorder' | 'public-stats' | 'public-report';
 
 export interface HelpItem {
   label?: string;
@@ -132,6 +132,8 @@ export const HELP_CONTENT: Record<HelpPageId, HelpContent> = {
           { text: '點擊比賽卡片進入紀錄；若顯示「未排先發」，請先到紀錄頁「守位」排定先發。' },
           { text: '「開啟 QR 共用」可讓紀錄員掃描加入即時紀錄。' },
           { text: '比賽結束後按「標記比賽完成」，紀錄將變為唯讀。' },
+          { text: '有打席或得分紀錄的比賽，可點「查看戰報」檢視逐局比分、打擊成績與打席紀錄。' },
+          { text: '戰報內可「複製文字」貼到 LINE，或「發布連結」產生公開網址給他人查看。' },
         ],
       },
       {
@@ -164,6 +166,8 @@ export const HELP_CONTENT: Record<HelpPageId, HelpContent> = {
           { text: '「棒次」分頁：選人後可一併設定守位；DH/EP 僅排棒次、不佔守備。' },
           { text: '紀錄分頁：上方為目前棒次，下方為下 3 棒；其餘棒次每頁 3 棒翻頁。' },
           { text: '點擊紀錄列表可編輯打點/出局；已完成比賽僅供查閱。' },
+          { text: '右上角「戰報」可檢視本場逐局比分、打擊成績與打席紀錄。' },
+          { text: '戰報底部可複製文字或發布公開連結分享給隊友。' },
         ],
       },
     ],
@@ -208,6 +212,7 @@ export const HELP_CONTENT: Record<HelpPageId, HelpContent> = {
         title: '基本操作',
         items: [
           { text: '新增球員姓名與背號（選填）。' },
+          { text: '點「編輯」可修改球員姓名與背號，歷史打席紀錄會一併更新顯示。' },
           { text: '球員資料全隊共用，可在紀錄頁「先發」分頁選擇上場。' },
           { text: '刪除球員不會刪除既有打席紀錄，但統計仍會保留歷史資料。' },
         ],
@@ -301,6 +306,19 @@ export const HELP_CONTENT: Record<HelpPageId, HelpContent> = {
         id: 'team',
         label: '球隊戰績',
         sections: STATS_TEAM_SECTIONS,
+      },
+    ],
+  },
+  'public-report': {
+    title: '公開戰報 · 說明',
+    sections: [
+      {
+        title: '使用方式',
+        items: [
+          { text: '此頁面為唯讀，由主控端在戰報中按「發布連結」後產生。' },
+          { text: '任何人持連結即可查看，無需登入或安裝 App。' },
+          { text: '重新發布會覆蓋同場比賽的舊連結內容。' },
+        ],
       },
     ],
   },

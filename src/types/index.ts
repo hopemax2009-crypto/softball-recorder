@@ -195,6 +195,17 @@ export interface PublicStatsSnapshot {
   publishedBy?: string;
 }
 
+/** 發布至 Firebase 的單場戰報（唯讀查詢用） */
+export interface PublicGameReport {
+  teamCode: string;
+  teamName: string;
+  seasonName?: string;
+  game: Game;
+  players: Player[];
+  updatedAt: string;
+  publishedBy?: string;
+}
+
 export interface BattingStats {
   playerId: string;
   playerName: string;

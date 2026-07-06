@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { v4 as uuid } from 'uuid';
-import type { AtBat, AtBatResult, Game, HalfInning, LineupEntry, Player, Position, RecordSubTab } from '../types';
+import type { AtBat, AtBatResult, Game, HalfInning, LineupEntry, Player, Position, RecordSubTab, Season } from '../types';
 import { AT_BAT_RESULTS, getDefaultOutsForResult, POSITIONS } from '../types';
 import {
   applyGameAfterAtBatChange,
@@ -14,9 +14,11 @@ import {
   substitutePlayerInLineup,
 } from '../utils/gameLogic';
 import { getResultLabel } from '../utils/stats';
+import { hasBoxScoreData } from '../utils/gameBoxScore';
 import { isGameRecordDataEqual } from '../utils/gameEquals';
 import type { LiveSyncState } from '../hooks/useLiveRoomSync';
 import type { SharedSyncState } from '../hooks/useSharedGameSync';
+import { GameBoxScoreSheet } from './GameBoxScoreSheet';
 import { LineupPanel } from './LineupPanel';
 import { PlayerPickerSheet } from './PlayerPickerSheet';
 import { PositionPanel } from './PositionPanel';
@@ -280,6 +282,7 @@ function RecordSheetOverlay({
 interface Props {
   players: Player[];
   activeGame: Game | null;
+  seasons?: Season[];
   recorderMode?: boolean;
   hasBottomNav?: boolean;
   syncState?: SharedSyncState | LiveSyncState | null;
@@ -287,11 +290,13 @@ interface Props {
   onSelectGame: (game: Game | null) => void;
   onUpdateGame: (game: Game) => void;
   teamName?: string;
+  publishedBy?: string;
 }
 
 export function RecordPanel({
   players: playersProp,
   activeGame,
+  seasons = [],
   recorderMode = false,
   hasBottomNav = false,
   syncState,
@@ -299,6 +304,7 @@ export function RecordPanel({
   onSelectGame,
   onUpdateGame,
   teamName = '我方',
+  publishedBy,
 }: Props) {
   const players = playersProp ?? [];
   const [subTab, setSubTab] = useState<RecordSubTab>('record');
@@ -314,6 +320,7 @@ export function RecordPanel({
   const [editOuts, setEditOuts] = useState(0);
   const [lineupPage, setLineupPage] = useState(0);
   const [pinchHitTarget, setPinchHitTarget] = useState<LineupEntry | null>(null);
+  const [showBoxScore, setShowBoxScore] = useState(false);
 
   const activeLineup = activeGame
     ? (activeGame.lineup ?? []).filter((l) => l.isActive).sort((a, b) => a.battingOrder - b.battingOrder)
@@ -648,13 +655,36 @@ export function RecordPanel({
   return (
     <div className="p-3 space-y-3">
       {!recorderMode && (
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="font-bold">{activeGame.opponent}</h2>
+        <div className="flex items-center justify-between gap-2">
+          <div className="min-w-0">
+            <h2 className="font-bold truncate">{activeGame.opponent}</h2>
             <p className="text-xs text-gray-500">{activeGame.date}</p>
           </div>
-          <Button variant="secondary" onClick={() => onSelectGame(null)} className="!py-2 !px-3 text-sm">換場</Button>
+          <div className="flex shrink-0 gap-2">
+            {hasBoxScoreData(activeGame) && (
+              <Button
+                variant="secondary"
+                onClick={() => setShowBoxScore(true)}
+                className="!py-2 !px-3 text-sm"
+              >
+                戰報
+              </Button>
+            )}
+            <Button variant="secondary" onClick={() => onSelectGame(null)} className="!py-2 !px-3 text-sm">換場</Button>
+          </div>
         </div>
+      )}
+
+      {showBoxScore && activeGame && (
+        <GameBoxScoreSheet
+          game={activeGame}
+          players={players}
+          seasons={seasons}
+          teamName={teamName}
+          publishedBy={publishedBy}
+          onClose={() => setShowBoxScore(false)}
+          hasBottomNav={hasBottomNav}
+        />
       )}
 
       {isReadOnly && (

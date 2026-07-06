@@ -12,7 +12,9 @@ import { GamesPanel } from './components/GamesPanel';
 import { RecordPanel } from './components/RecordPanel';
 import { StatsPanel } from './components/StatsPanel';
 import { PublicStatsApp } from './components/PublicStatsApp';
+import { PublicGameReportApp } from './components/PublicGameReportApp';
 import { getPublicStatsParams } from './utils/publicStats';
+import { getPublicGameReportParams } from './utils/publicGameReport';
 import { PlayersPanel } from './components/PlayersPanel';
 import { SettingsPanel } from './components/SettingsPanel';
 import { RegisterPanel } from './components/RegisterPanel';
@@ -33,6 +35,7 @@ function HostApp() {
     replaceData,
     addSeason,
     addPlayer,
+    updatePlayer,
     addGame,
     updateGame,
     deleteGame,
@@ -179,12 +182,14 @@ function HostApp() {
           <RecordPanel
             players={data.players}
             activeGame={activeGame}
+            seasons={data.seasons}
             syncState={activeGame?.liveRoomId ? syncState : null}
             onSyncNow={pushNow}
             onSelectGame={handleSelectGame}
             onUpdateGame={handleUpdateGame}
             hasBottomNav
             teamName={data.ownerName}
+            publishedBy={session.displayName}
           />
         )}
         {tab === 'games' && (
@@ -193,6 +198,7 @@ function HostApp() {
             games={data.games}
             players={data.players}
             ownerName={session.displayName}
+            teamName={data.ownerName}
             onAddSeason={addSeason}
             onAddGame={addGame}
             onSelectGame={handleSelectGame}
@@ -210,7 +216,12 @@ function HostApp() {
           />
         )}
         {tab === 'players' && (
-          <PlayersPanel players={data.players} onAddPlayer={addPlayer} onDeletePlayer={deletePlayer} />
+          <PlayersPanel
+            players={data.players}
+            onAddPlayer={addPlayer}
+            onUpdatePlayer={updatePlayer}
+            onDeletePlayer={deletePlayer}
+          />
         )}
         {tab === 'settings' && (
           <SettingsPanel
@@ -234,6 +245,10 @@ function HostApp() {
 function App() {
   if (getRecorderParams()) {
     return <RecorderApp />;
+  }
+  const publicReport = getPublicGameReportParams();
+  if (publicReport) {
+    return <PublicGameReportApp teamCode={publicReport.team} gameId={publicReport.game} />;
   }
   const publicStats = getPublicStatsParams();
   if (publicStats) {

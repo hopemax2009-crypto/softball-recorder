@@ -4,6 +4,8 @@ import { isFirebaseConfigured } from '../config/firebase';
 import { createLiveRoom, closeLiveRoom, fetchLiveRoom, generatePin } from '../services/liveRoomSync';
 import { saveHostRoom, loadHostRoom, clearHostRoom } from '../utils/hostRoomStorage';
 import { hasActiveLineup, getGameOutcome } from '../utils/gameLogic';
+import { hasBoxScoreData } from '../utils/gameBoxScore';
+import { GameBoxScoreSheet } from './GameBoxScoreSheet';
 import { QRShareModal } from './QRShareModal';
 import { Button, Card, EmptyState, Input, Select } from './ui';
 
@@ -14,6 +16,7 @@ interface Props {
   games: Game[];
   players: import('../types').Player[];
   ownerName: string;
+  teamName: string;
   onAddSeason: (name: string, year: number) => import('../types').Season | undefined;
   onAddGame: (seasonId: string, date: string, opponent: string, location?: string, isHomeTeam?: boolean) => Game | undefined;
   onSelectGame: (game: Game) => void;
@@ -26,6 +29,7 @@ export function GamesPanel({
   games,
   players,
   ownerName,
+  teamName,
   onAddSeason,
   onAddGame,
   onSelectGame,
@@ -62,6 +66,7 @@ export function GamesPanel({
     opponent: string;
     game: Game;
   } | null>(null);
+  const [boxScoreGame, setBoxScoreGame] = useState<Game | null>(null);
 
   const filteredGames = games
     .filter((g) => !selectedSeason || g.seasonId === selectedSeason)
@@ -292,6 +297,17 @@ export function GamesPanel({
         />
       )}
 
+      {boxScoreGame && (
+        <GameBoxScoreSheet
+          game={boxScoreGame}
+          players={players}
+          seasons={seasons}
+          teamName={teamName}
+          publishedBy={ownerName}
+          onClose={() => setBoxScoreGame(null)}
+        />
+      )}
+
       <Card className="bg-blue-50 border-blue-200">
         <h3 className="font-semibold text-sm text-blue-800">主控端開場流程</h3>
         <ol className="text-xs text-blue-700 mt-2 space-y-1 list-decimal list-inside">
@@ -430,6 +446,15 @@ export function GamesPanel({
                   )}
                 </div>
                 <div className="mt-3 pt-2 border-t border-gray-100 flex flex-wrap gap-x-4 gap-y-1">
+                  {hasBoxScoreData(game) && (
+                    <button
+                      type="button"
+                      onClick={() => setBoxScoreGame(game)}
+                      className="text-xs text-field-green py-1 px-1 font-medium"
+                    >
+                      查看戰報
+                    </button>
+                  )}
                   {hasLive && (
                     <button
                       type="button"
