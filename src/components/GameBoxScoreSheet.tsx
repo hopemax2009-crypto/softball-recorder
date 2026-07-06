@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { Game, Player, Season } from '../types';
 import { isFirebaseConfigured } from '../config/firebase';
-import { publishPublicGameReport } from '../services/publicGameReportSync';
+import { publishPublicGameReport, getPublicGameReportWritePath } from '../services/publicGameReportSync';
 import { buildGameBoxScore, formatGameBoxScoreText } from '../utils/gameBoxScore';
 import { buildPublicGameReportUrl } from '../utils/publicGameReport';
 import { getTeamCode, normalizeTeamCode } from '../utils/teamStorage';
@@ -100,7 +100,15 @@ export function GameBoxScoreSheet({
           : `已發布！請複製連結：${url}`
       );
     } catch (e) {
-      setShareStatus(e instanceof Error ? e.message : '發布失敗');
+      const msg = e instanceof Error ? e.message : '發布失敗';
+      const writePath = getPublicGameReportWritePath(teamCode, game.id);
+      if (msg.includes('Permission denied') || msg.includes('PERMISSION_DENIED')) {
+        setShareStatus(
+          `發布失敗（權限不足）。請在 Firebase 規則加入 publicGameReports 的讀寫，並確認已按「發布」。寫入路徑：${writePath}`
+        );
+      } else {
+        setShareStatus(msg);
+      }
     } finally {
       setPublishing(false);
     }
