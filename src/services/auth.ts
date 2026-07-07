@@ -9,6 +9,23 @@ import {
 } from './cloudAccount';
 
 const SESSION_KEY = 'softball-recorder-session';
+const LAST_USERNAME_KEY = 'softball-recorder-last-username';
+
+export function getLastUsername(): string {
+  try {
+    return localStorage.getItem(LAST_USERNAME_KEY) ?? '';
+  } catch {
+    return '';
+  }
+}
+
+function saveLastUsername(username: string): void {
+  try {
+    localStorage.setItem(LAST_USERNAME_KEY, username.trim().toLowerCase());
+  } catch {
+    // ignore quota / private mode
+  }
+}
 
 export function getSession(): AuthSession | null {
   try {
@@ -84,6 +101,7 @@ export async function createAccount(
 export async function login(username: string, password: string): Promise<AuthSession> {
   const account = await loginCloudAccount(username, password);
   const session = accountToSession(account);
+  saveLastUsername(session.username);
   setSession(session);
   return session;
 }
@@ -107,6 +125,7 @@ export async function changeCredentials(
     nextDisplayName
   );
   const nextSession = accountToSession(account);
+  saveLastUsername(nextSession.username);
   setSession(nextSession);
   return nextSession;
 }

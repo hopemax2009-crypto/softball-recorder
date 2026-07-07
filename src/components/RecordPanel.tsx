@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { v4 as uuid } from 'uuid';
-import type { AtBat, AtBatResult, Game, HalfInning, LineupEntry, Player, Position, RecordSubTab, Season } from '../types';
+import type { AtBat, AtBatResult, Game, HalfInning, LineupEntry, LineupTemplate, LineupTemplateEntry, Player, Position, RecordSubTab, Season } from '../types';
 import { AT_BAT_RESULTS, getDefaultOutsForResult, POSITIONS } from '../types';
 import {
   applyGameAfterAtBatChange,
@@ -19,6 +19,7 @@ import { isGameRecordDataEqual } from '../utils/gameEquals';
 import type { LiveSyncState } from '../hooks/useLiveRoomSync';
 import type { SharedSyncState } from '../hooks/useSharedGameSync';
 import { GameBoxScoreSheet } from './GameBoxScoreSheet';
+import { LineupCopyTools } from './LineupCopyTools';
 import { LineupPanel } from './LineupPanel';
 import { PlayerPickerSheet } from './PlayerPickerSheet';
 import { PositionPanel } from './PositionPanel';
@@ -281,6 +282,8 @@ function RecordSheetOverlay({
 
 interface Props {
   players: Player[];
+  games?: Game[];
+  lineupTemplates?: LineupTemplate[];
   activeGame: Game | null;
   seasons?: Season[];
   recorderMode?: boolean;
@@ -289,12 +292,16 @@ interface Props {
   onSyncNow?: () => void;
   onSelectGame: (game: Game | null) => void;
   onUpdateGame: (game: Game) => void;
+  onAddLineupTemplate?: (name: string, entries: LineupTemplateEntry[]) => void;
+  onDeleteLineupTemplate?: (templateId: string) => void;
   teamName?: string;
   publishedBy?: string;
 }
 
 export function RecordPanel({
   players: playersProp,
+  games = [],
+  lineupTemplates = [],
   activeGame,
   seasons = [],
   recorderMode = false,
@@ -303,6 +310,8 @@ export function RecordPanel({
   onSyncNow,
   onSelectGame,
   onUpdateGame,
+  onAddLineupTemplate,
+  onDeleteLineupTemplate,
   teamName = '我方',
   publishedBy,
 }: Props) {
@@ -755,6 +764,18 @@ export function RecordPanel({
           );
         })}
       </div>
+
+      {!recorderMode && !isReadOnly && (subTab === 'positions' || subTab === 'lineup') && onAddLineupTemplate && onDeleteLineupTemplate && (
+        <LineupCopyTools
+          game={activeGame}
+          games={games}
+          players={players}
+          lineupTemplates={lineupTemplates}
+          onUpdate={guardedUpdate}
+          onAddTemplate={onAddLineupTemplate}
+          onDeleteTemplate={onDeleteLineupTemplate}
+        />
+      )}
 
       {subTab === 'positions' && (
         <PositionPanel

@@ -3,7 +3,7 @@ import { v4 as uuid } from 'uuid';
 import { clearSession, getSession, setSession as saveAuthSession } from '../services/auth';
 import { loadCloudData, saveCloudData } from '../services/cloudStorage';
 import { isFirebaseConfigured } from '../config/firebase';
-import type { AuthSession, Game, Player, Season, UserData } from '../types';
+import type { AuthSession, Game, LineupTemplateEntry, Player, Season, UserData } from '../types';
 import { createDefaultGameFields } from '../utils/gameLogic';
 import { createEmptyData, loadData, saveData } from '../utils/storage';
 
@@ -369,6 +369,37 @@ export function useAppData() {
     [data, persist]
   );
 
+  const addLineupTemplate = useCallback(
+    (name: string, entries: LineupTemplateEntry[]) => {
+      if (!data || !name.trim() || entries.length === 0) return;
+      const now = new Date().toISOString();
+      const template = {
+        id: uuid(),
+        name: name.trim(),
+        entries,
+        createdAt: now,
+        updatedAt: now,
+      };
+      persist({
+        ...data,
+        lineupTemplates: [...(data.lineupTemplates ?? []), template],
+      });
+      return template;
+    },
+    [data, persist]
+  );
+
+  const deleteLineupTemplate = useCallback(
+    (templateId: string) => {
+      if (!data) return;
+      persist({
+        ...data,
+        lineupTemplates: (data.lineupTemplates ?? []).filter((t) => t.id !== templateId),
+      });
+    },
+    [data, persist]
+  );
+
   return {
     session,
     data,
@@ -389,5 +420,7 @@ export function useAppData() {
     upsertGame,
     importSharedGame,
     mergePlayersFromGame,
+    addLineupTemplate,
+    deleteLineupTemplate,
   };
 }

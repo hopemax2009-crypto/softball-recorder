@@ -17,6 +17,7 @@ export function createEmptyData(ownerId: string, ownerName: string): UserData {
     players: [],
     seasons: [],
     games: [],
+    lineupTemplates: [],
     updatedAt: now,
   };
 }

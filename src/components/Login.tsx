@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { AuthSession } from '../types';
 import { isFirebaseConfigured } from '../config/firebase';
-import { login } from '../services/auth';
+import { login, getLastUsername } from '../services/auth';
 import { Button, Card, EmptyState, Input } from './ui';
 
 interface Props {
@@ -9,7 +9,7 @@ interface Props {
 }
 
 export function Login({ onAuth }: Props) {
-  const [username, setUsername] = useState('');
+  const [username, setUsername] = useState(() => getLastUsername());
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -58,6 +58,7 @@ export function Login({ onAuth }: Props) {
             onChange={(e) => setUsername(e.target.value)}
             required
             autoComplete="username"
+            autoFocus={!username}
           />
           <Input
             label="密碼"

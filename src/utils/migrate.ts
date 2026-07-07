@@ -34,5 +34,6 @@ export function migrateUserData(data: UserData): UserData {
     ...data,
     version: 2,
     games: data.games.map(migrateGame),
+    lineupTemplates: data.lineupTemplates ?? [],
   };
 }

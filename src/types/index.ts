@@ -92,6 +92,21 @@ export interface LineupEntry {
   isActive: boolean;
 }
 
+/** 先發模板項目（不含 isActive，套用時一律為先發） */
+export interface LineupTemplateEntry {
+  playerId: string;
+  battingOrder: number;
+  position: Position;
+}
+
+export interface LineupTemplate {
+  id: string;
+  name: string;
+  entries: LineupTemplateEntry[];
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface OpponentRunAttribution {
   /** 該分失分時的投手（守位 P） */
   pitcherId?: string;
@@ -181,6 +196,7 @@ export interface UserData {
   players: Player[];
   seasons: Season[];
   games: Game[];
+  lineupTemplates?: LineupTemplate[];
   updatedAt: string;
 }
 

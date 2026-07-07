@@ -42,6 +42,8 @@ function HostApp() {
     deletePlayer,
     upsertGame,
     mergePlayersFromGame,
+    addLineupTemplate,
+    deleteLineupTemplate,
   } = useAppData();
 
   const [tab, setTab] = useState<TabId>('record');
@@ -181,12 +183,16 @@ function HostApp() {
         {tab === 'record' && (
           <RecordPanel
             players={data.players}
+            games={data.games}
+            lineupTemplates={data.lineupTemplates ?? []}
             activeGame={activeGame}
             seasons={data.seasons}
             syncState={activeGame?.liveRoomId ? syncState : null}
             onSyncNow={pushNow}
             onSelectGame={handleSelectGame}
             onUpdateGame={handleUpdateGame}
+            onAddLineupTemplate={addLineupTemplate}
+            onDeleteLineupTemplate={deleteLineupTemplate}
             hasBottomNav
             teamName={data.ownerName}
             publishedBy={session.displayName}
