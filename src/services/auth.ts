@@ -3,6 +3,7 @@ import {
   adminResetCloudAccountPassword,
   listCloudAccountsForAdmin,
   loginCloudAccount,
+  lookupCloudAccountForAdmin,
   registerCloudAccount,
   type AdminAccountView,
   updateCloudAccountCredentials,
@@ -130,11 +131,24 @@ export async function changeCredentials(
   return nextSession;
 }
 
-export async function listAdminAccounts(currentUsername: string): Promise<AdminAccountView[]> {
+export async function listAdminAccounts(
+  currentUsername: string,
+  extraUsernames: string[] = []
+): Promise<AdminAccountView[]> {
   if (!isAdminUser(currentUsername)) {
     throw new Error('僅管理者可查看帳號清單');
   }
-  return listCloudAccountsForAdmin();
+  return listCloudAccountsForAdmin(extraUsernames);
+}
+
+export async function lookupAdminAccount(
+  currentUsername: string,
+  targetUsername: string
+): Promise<AdminAccountView> {
+  if (!isAdminUser(currentUsername)) {
+    throw new Error('僅管理者可查看帳號');
+  }
+  return lookupCloudAccountForAdmin(targetUsername);
 }
 
 export async function adminResetAccountPassword(

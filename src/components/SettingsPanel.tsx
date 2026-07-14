@@ -2,7 +2,7 @@ import { useRef, useState } from 'react';
 import type { AuthSession, UserData } from '../types';
 import type { CloudSyncState } from '../hooks/useAppData';
 import { useAppUpdate } from '../hooks/useAppUpdate';
-import { adminResetAccountPassword, changeCredentials, isAdminUser, listAdminAccounts } from '../services/auth';
+import { adminResetAccountPassword, changeCredentials, isAdminUser, listAdminAccounts, lookupAdminAccount } from '../services/auth';
 import type { AdminAccountView } from '../services/cloudAccount';
 import { downloadJson, importData } from '../utils/storage';
 import { Button, Card, Input } from './ui';
@@ -33,6 +33,8 @@ export function SettingsPanel({ session, data, cloudSync, onSyncToCloud, onRepla
   const [resetNewPassword, setResetNewPassword] = useState('');
   const [resettingPassword, setResettingPassword] = useState(false);
   const [resetStatus, setResetStatus] = useState('');
+  const [lookupUsername, setLookupUsername] = useState('');
+  const [lookingUp, setLookingUp] = useState(false);
   const isAdmin = isAdminUser(session.username);
 
   const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -82,12 +84,39 @@ export function SettingsPanel({ session, data, cloudSync, onSyncToCloud, onRepla
     setAccountListError('');
     setLoadingAccounts(true);
     try {
-      const rows = await listAdminAccounts(session.username);
+      const extras = lookupUsername.trim() ? [lookupUsername.trim()] : [];
+      const rows = await listAdminAccounts(session.username, extras);
       setAccounts(rows);
+      setAccountListError(
+        rows.length > 0
+          ? ''
+          : '未找到帳號'
+      );
     } catch (err) {
       setAccountListError(err instanceof Error ? err.message : '載入帳號失敗');
     } finally {
       setLoadingAccounts(false);
+    }
+  };
+
+  const handleLookupAccount = async () => {
+    setAccountListError('');
+    if (!lookupUsername.trim()) {
+      setAccountListError('請輸入要查詢的帳號');
+      return;
+    }
+    setLookingUp(true);
+    try {
+      const row = await lookupAdminAccount(session.username, lookupUsername);
+      setAccounts((prev) => {
+        const others = prev.filter((a) => a.username !== row.username);
+        return [...others, row].sort((a, b) => a.username.localeCompare(b.username, 'zh-TW'));
+      });
+      setResetTargetUsername(row.username);
+    } catch (err) {
+      setAccountListError(err instanceof Error ? err.message : '查詢失敗');
+    } finally {
+      setLookingUp(false);
     }
   };
 
@@ -166,8 +195,25 @@ export function SettingsPanel({ session, data, cloudSync, onSyncToCloud, onRepla
         <Card className="space-y-3 bg-purple-50 border-purple-200">
           <h3 className="font-semibold text-purple-900">管理者：帳號清單</h3>
           <p className="text-xs text-purple-800">
-            因安全設計無法還原密碼明碼，以下顯示密碼雜湊（Hash）。
+            僅 VITE_ADMIN_USERNAMES 名單內帳號可用。線上規則目前多半只能讀單一 accounts/帳號；
+            「載入」會查環境變數已知帳號與本機登入過的帳號，「查詢帳號」可輸入其他帳號名稱。
           </p>
+          <div className="rounded-lg border border-purple-200 bg-white p-3 space-y-2">
+            <Input
+              label="查詢帳號（選填）"
+              placeholder="例：hope2"
+              value={lookupUsername}
+              onChange={(e) => setLookupUsername(e.target.value)}
+            />
+            <div className="flex gap-2">
+              <Button variant="secondary" onClick={() => void handleLookupAccount()} disabled={lookingUp} className="flex-1">
+                {lookingUp ? '查詢中…' : '查詢帳號'}
+              </Button>
+              <Button variant="secondary" onClick={() => void handleLoadAccounts()} disabled={loadingAccounts} className="flex-1">
+                {loadingAccounts ? '載入中…' : '載入已知帳號'}
+              </Button>
+            </div>
+          </div>
           <div className="rounded-lg border border-purple-200 bg-white p-3 space-y-2">
             <p className="text-xs font-medium text-purple-900">重設他人密碼</p>
             <Input
@@ -191,11 +237,10 @@ export function SettingsPanel({ session, data, cloudSync, onSyncToCloud, onRepla
               {resettingPassword ? '重設中…' : '重設密碼'}
             </Button>
           </div>
-          <Button variant="secondary" onClick={() => void handleLoadAccounts()} disabled={loadingAccounts} className="w-full">
-            {loadingAccounts ? '載入中…' : '載入所有帳號'}
-          </Button>
           {accountListError && (
-            <p className="text-xs text-red-600 bg-red-50 rounded-lg py-2 px-2">{accountListError}</p>
+            <p className={`text-xs rounded-lg py-2 px-2 ${accountListError.includes('連線資料庫') || accountListError.includes('找不到') || accountListError.includes('失敗') || accountListError.includes('權限') ? 'text-red-600 bg-red-50' : 'text-purple-800 bg-purple-100'}`}>
+              {accountListError}
+            </p>
           )}
           {accounts.length > 0 && (
             <div className="space-y-2 max-h-64 overflow-y-auto">

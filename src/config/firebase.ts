@@ -15,6 +15,15 @@ export function isFirebaseConfigured(): boolean {
   return !!(firebaseConfig.apiKey && firebaseConfig.databaseURL);
 }
 
+/** 供錯誤訊息顯示（不含 API Key） */
+export function getFirebaseDatabaseHost(): string {
+  try {
+    return firebaseConfig.databaseURL ? new URL(firebaseConfig.databaseURL).host : '(未設定)';
+  } catch {
+    return '(無效的 DATABASE_URL)';
+  }
+}
+
 export function getFirebaseDb(): Database {
   if (!isFirebaseConfigured()) {
     throw new Error('Firebase 尚未設定，請聯繫管理者');
