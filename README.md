@@ -70,4 +70,41 @@ base: '/您的儲存庫名稱/',
 ## 授權
 
 MIT
-- test
+- {
+  "rules": {
+    "accounts": {
+      ".read": true,
+      "$username": {
+        ".write": true
+      }
+    },
+    "accountDirectory": {
+      ".read": true,
+      ".write": true
+    },
+    "userData": {
+      "$userId": {
+        ".read": true,
+        ".write": true
+      }
+    },
+    "rooms": {
+      "$roomId": {
+        ".read": true,
+        ".write": true
+      }
+    },
+    "publicStats": {
+      "$teamCode": {
+        ".read": true,
+        ".write": true
+      }
+    },
+    "publicGameReports": {
+      "$reportKey": {
+        ".read": true,
+        ".write": true
+      }
+    }
+  }
+}
