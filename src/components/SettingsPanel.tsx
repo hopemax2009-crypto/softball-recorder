@@ -195,13 +195,12 @@ export function SettingsPanel({ session, data, cloudSync, onSyncToCloud, onRepla
         <Card className="space-y-3 bg-purple-50 border-purple-200">
           <h3 className="font-semibold text-purple-900">管理者：帳號清單</h3>
           <p className="text-xs text-purple-800">
-            僅 VITE_ADMIN_USERNAMES 名單內帳號可用。線上規則目前多半只能讀單一 accounts/帳號；
-            「載入」會查環境變數已知帳號與本機登入過的帳號，「查詢帳號」可輸入其他帳號名稱。
+            僅 VITE_ADMIN_USERNAMES 名單內帳號可用。點「載入全部帳號」可讀取雲端所有註冊帳號。
           </p>
           <div className="rounded-lg border border-purple-200 bg-white p-3 space-y-2">
             <Input
-              label="查詢帳號（選填）"
-              placeholder="例：hope2"
+              label="查詢單一帳號（選填）"
+              placeholder="例：marvel"
               value={lookupUsername}
               onChange={(e) => setLookupUsername(e.target.value)}
             />
@@ -210,7 +209,7 @@ export function SettingsPanel({ session, data, cloudSync, onSyncToCloud, onRepla
                 {lookingUp ? '查詢中…' : '查詢帳號'}
               </Button>
               <Button variant="secondary" onClick={() => void handleLoadAccounts()} disabled={loadingAccounts} className="flex-1">
-                {loadingAccounts ? '載入中…' : '載入已知帳號'}
+                {loadingAccounts ? '載入中…' : '載入全部帳號'}
               </Button>
             </div>
           </div>

@@ -150,8 +150,7 @@ function permissionHint(): string {
   const host = getFirebaseDatabaseHost();
   return [
     `雲端權限不足（連線資料庫：${host}）。`,
-    '目前線上規則可讀 accounts/{帳號}，但無法讀整個 /accounts。',
-    '請在 asia-southeast1 資料庫發布 accounts 父節點 ".read": true，並加入 accountDirectory 讀寫。',
+    '請確認 asia-southeast1 規則允許讀取 accounts（父節點 ".read": true）。',
   ].join('');
 }
 
@@ -353,13 +352,14 @@ export async function listCloudAccountsForAdmin(
 ): Promise<AdminAccountView[]> {
   if (!isFirebaseConfigured()) throw new Error('雲端尚未設定，無法查詢帳號');
   try {
-    const fromDir = await listFromDirectory();
-    if (fromDir && fromDir.length > 0) return fromDir;
-
+    // 優先讀整個 /accounts（規則已開父節點 .read 時可一次拿到全部）
     const fromRoot = await listFromAccountsRoot();
     if (fromRoot && fromRoot.length > 0) return fromRoot;
 
-    // 備援：逐筆讀 accounts/{username}（符合目前線上規則）
+    const fromDir = await listFromDirectory();
+    if (fromDir && fromDir.length > 0) return fromDir;
+
+    // 備援：逐筆讀 accounts/{username}
     const candidates = [
       ...extraUsernames,
       ...envKnownUsernames(),
@@ -371,7 +371,7 @@ export async function listCloudAccountsForAdmin(
     throw new Error(
       [
         permissionHint(),
-        '目前查無已知帳號。可在下方輸入帳號名稱查詢，或先以各帳號登入一次後再載入。',
+        '目前查無帳號。可在下方輸入帳號名稱查詢，或確認 Firebase accounts 節點有資料。',
       ].join('')
     );
   } catch (err) {
